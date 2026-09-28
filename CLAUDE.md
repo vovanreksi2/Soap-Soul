@@ -11,8 +11,11 @@ dotnet run --project src/SoapAndSoul.Api       # app at http://localhost:5068 (A
 dotnet publish src/SoapAndSoul.Api -c Release -o out
 
 dotnet tool restore
-dotnet ef migrations add <Name> --project src/SoapAndSoul.Data   # uses DesignTimeFactory (SQLite)
+dotnet ef migrations add <Name> --project src/SoapAndSoul.Data             # SQLite (development)
+dotnet ef migrations add <Name> --project src/SoapAndSoul.Data.SqlServer   # Azure SQL (production)
 ```
+
+Model changes need a migration in both projects; `MigrationTests` fails otherwise.
 
 Development seeds sample data into `src/SoapAndSoul.Api/App_Data/soapandsoul.db` (delete it to reset).
 Migrations are applied at API startup.
@@ -26,11 +29,13 @@ Migrations are applied at API startup.
   - `Costing/CostCalculator.cs`: drops = ml × 20; molds amortized over `UsesPerItem`.
   - `Validation/`: used by the API before saving and by the client before auto-save.
   - `Contracts/Dtos.cs`: wire format. Enums serialize as strings.
-- `SoapAndSoul.Data` — EF Core, SQLite. Guid ids (client-generated, v7), `Version` concurrency token,
+- `SoapAndSoul.Data` — EF Core; provider chosen by `Database:Provider` (`Sqlite` in development and tests,
+  `SqlServer` in production, migrations in `SoapAndSoul.Data.SqlServer`). Guid ids (client-generated, v7), `Version` concurrency token,
   soft delete via query filters. `Mapping.cs` maps entity ↔ DTO; recipes replace their item set from the DTO.
 - `SoapAndSoul.Api` — minimal APIs in `Features/`. Upserts are `PUT /api/{ingredients|recipes}/{id}`;
   a stale `Version` returns `409` with the current copy. Deleting an ingredient removes it from recipes.
-  Photos go through `IImageStorage` (`LocalImageStorage` → `App_Data/images`, served at `/images`).
+  Photos go through `IImageStorage` (`Images:Provider`: `Local` → `App_Data/images`, `AzureBlob` → private
+  container via managed identity); both are streamed by the app at `/images/{name}`.
   Client files are served by `MapStaticAssets()`; do not re-add `UseBlazorFrameworkFiles()` (it breaks `_framework` routing).
 - `SoapAndSoul.Client` — Blazor WASM PWA.
   - `Services/`: `IRecipeStore`/`IIngredientStore`/`IImageStore` (HTTP implementation now; keep UI on these
@@ -42,5 +47,8 @@ Migrations are applied at API startup.
     Use Nocturne variables, Phosphor icons (`ph ph-*`), no hard-coded colors.
   - `InvariantGlobalization` is on: format numbers with `Domain/Text/Formatting`, sort with `UkrainianComparer`.
   - `index.html` must reference `_framework/blazor.webassembly.js` without fingerprint placeholders.
+
+Deployment: `infra/main.bicep` (App Service + Azure SQL + Blob Storage, one user-assigned managed identity, no secrets)
+is deployed by `.github/workflows/deploy.yml` before the app on every push to `main`. Setup in `docs/deploy/azure.md`.
 
 Design reference: `docs/design/soap-and-soul-mobile-v2.html` (the prototype this app implements).

@@ -3,6 +3,7 @@
     <Project Path="src/SoapAndSoul.Api/SoapAndSoul.Api.csproj" />
     <Project Path="src/SoapAndSoul.Client/SoapAndSoul.Client.csproj" />
     <Project Path="src/SoapAndSoul.Data/SoapAndSoul.Data.csproj" />
+    <Project Path="src/SoapAndSoul.Data.SqlServer/SoapAndSoul.Data.SqlServer.csproj" />
     <Project Path="src/SoapAndSoul.Domain/SoapAndSoul.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">

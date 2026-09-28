@@ -27,13 +27,21 @@ A PWA can only be installed over HTTPS (or from `localhost`). The simplest optio
 
 In Chrome on Android: menu ⋮ → "Install app".
 
+## Deployment
+
+Production runs on Azure App Service with Azure SQL and Blob Storage, reached through a managed identity.
+On every push to `main`, GitHub Actions (`.github/workflows/deploy.yml`) builds and tests the app, deploys the
+infrastructure from `infra/main.bicep`, then deploys the app onto it.
+One-time Azure and GitHub setup: [docs/deploy/azure.md](docs/deploy/azure.md).
+
 ## Structure
 
 | Project | Purpose |
 |---|---|
 | `SoapAndSoul.Domain` | Shared by client and server: categories, selection rules, costing, validation, search, formatting. No EF or UI. |
-| `SoapAndSoul.Data` | EF Core: entities, `SoapAndSoulDbContext`, migrations, sample data. |
-| `SoapAndSoul.Api` | ASP.NET Core Minimal API (`/api/...`); also serves the client. Photos are stored on disk (`IImageStorage`). |
+| `SoapAndSoul.Data` | EF Core: entities, `SoapAndSoulDbContext`, SQLite migrations, sample data. |
+| `SoapAndSoul.Data.SqlServer` | SQL Server (Azure SQL) setup and migrations, used in production. |
+| `SoapAndSoul.Api` | ASP.NET Core Minimal API (`/api/...`); also serves the client. Photos go to local disk or Azure Blob Storage (`IImageStorage`). |
 | `SoapAndSoul.Client` | Blazor WebAssembly PWA implementing the design in `docs/design/soap-and-soul-mobile-v2.html`. |
 | `tests/*` | xUnit: rules and calculations (Domain), API integration tests. |
 
@@ -64,7 +72,6 @@ Design reference: `docs/design/` (v2 prototype, Nocturne design system guide, de
 ## Next steps
 
 - **Authentication** (multiple users): `[Authorize]` on the `/api` group, Entra ID or ASP.NET Identity.
-- **Azure**: SQL Server provider + a separate migration set; `IImageStorage` on Azure Blob via Managed Identity.
 - **Offline**: a second `IRecipeStore`/`IIngredientStore` implementation on IndexedDB + a change queue and sync by `Version`.
 - **Tablet**: two-column layout (recipe + selection panel).
 - Cleanup of photos that are no longer referenced.

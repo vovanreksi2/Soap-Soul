@@ -6,14 +6,9 @@ using SoapAndSoul.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = SqlitePaths.Resolve(
-    builder.Configuration.GetConnectionString("Default")
-        ?? throw new InvalidOperationException("ConnectionStrings:Default is not configured."),
-    builder.Environment.ContentRootPath);
-builder.Services.AddDbContext<SoapAndSoulDbContext>(o => o.UseSqlite(connectionString));
+builder.AddDatabase();
 builder.Services.AddProblemDetails();
-builder.Services.Configure<ImageStorageOptions>(builder.Configuration.GetSection(ImageStorageOptions.Section));
-builder.Services.AddSingleton<IImageStorage, LocalImageStorage>();
+builder.Services.AddImageStorage(builder.Configuration);
 
 var app = builder.Build();
 
@@ -29,7 +24,6 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment()) app.UseWebAssemblyDebugging();
 
 app.UseStaticFiles();
-app.UseImageFiles();
 // Serves the client's _framework files by their plain names (fingerprinted and Brotli-compressed on disk).
 app.MapStaticAssets();
 
@@ -38,6 +32,7 @@ api.MapIngredientEndpoints();
 api.MapRecipeEndpoints();
 api.MapImageEndpoints();
 api.MapFallback(() => Results.NotFound());
+app.MapImageFiles();
 app.MapGet("/healthz", () => Results.Ok("ok"));
 
 app.MapFallbackToFile("index.html");

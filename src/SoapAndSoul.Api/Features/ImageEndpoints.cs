@@ -10,6 +10,19 @@ public static class ImageEndpoints
         // No cookies are used, so antiforgery is not needed for this form post.
         api.MapPost("/images", Upload).DisableAntiforgery();
 
+    /// <summary>Serves stored photos from any <see cref="IImageStorage"/>, so the storage account stays private.</summary>
+    public static void MapImageFiles(this IEndpointRouteBuilder app) =>
+        app.MapGet($"{ImageNames.UrlPrefix}/{{name}}", Download);
+
+    private static async Task<IResult> Download(string name, IImageStorage storage, HttpContext http, CancellationToken ct)
+    {
+        if (!ImageNames.IsValid(name) || await storage.OpenReadAsync(name, ct) is not { } content)
+            return Results.NotFound();
+        // Names are random and never reused, so they can be cached forever.
+        http.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+        return Results.Stream(content, ImageNames.ContentType(name));
+    }
+
     private static async Task<IResult> Upload(IFormFile file, IImageStorage storage, IOptions<ImageStorageOptions> options, CancellationToken ct)
     {
         if (file.Length == 0) return ApiResults.Invalid("file", "Файл порожній.");
@@ -22,8 +35,9 @@ public static class ImageEndpoints
             return ApiResults.Invalid("file", "Підтримуються лише JPEG, PNG і WebP.");
 
         stream.Position = 0;
-        var url = await storage.SaveAsync(stream, extension, ct);
-        return Results.Ok(new ImageUploadResult(url));
+        var name = ImageNames.New(extension);
+        await storage.SaveAsync(name, stream, ct);
+        return Results.Ok(new ImageUploadResult(ImageNames.Url(name)));
     }
 
     /// <summary>Trusts the file's magic bytes, not its declared content type.</summary>
