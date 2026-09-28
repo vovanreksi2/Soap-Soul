@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SoapAndSoul.Api/SoapAndSoul.Api.csproj" />
+    <Project Path="src/SoapAndSoul.Client/SoapAndSoul.Client.csproj" />
+    <Project Path="src/SoapAndSoul.Data/SoapAndSoul.Data.csproj" />
+    <Project Path="src/SoapAndSoul.Domain/SoapAndSoul.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SoapAndSoul.Api.Tests/SoapAndSoul.Api.Tests.csproj" />
+    <Project Path="tests/SoapAndSoul.Domain.Tests/SoapAndSoul.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
