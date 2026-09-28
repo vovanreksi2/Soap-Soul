@@ -1,0 +1,31 @@
+@* "Збережено" / "Збережеться" in the recipe header; tapping retries a failed save. *@
+<button type="button" class="save-state @(Failed ? "error" : "")" style="border:0;background:none;padding:0 4px;cursor:@(Failed ? "pointer" : "default")"
+        title="@Editor.StatusMessage" @onclick="Retry">
+    <i class="ph @Icon"></i>@Text
+</button>
+
+@code {
+    [Parameter, EditorRequired] public RecipeEditor Editor { get; set; } = null!;
+
+    private bool Failed => Editor.Status is SaveStatus.Failed or SaveStatus.Invalid;
+
+    private string Icon => Editor.Status switch
+    {
+        SaveStatus.Saved => "ph-cloud-check",
+        SaveStatus.Saving => "ph-cloud-arrow-up",
+        SaveStatus.Pending => "ph-cloud-arrow-up",
+        SaveStatus.Invalid => "ph-warning-circle",
+        _ => "ph-cloud-slash",
+    };
+
+    private string Text => Editor.Status switch
+    {
+        SaveStatus.Saved => "Збережено",
+        SaveStatus.Saving => "Зберігаю…",
+        SaveStatus.Pending => "Збережеться",
+        SaveStatus.Invalid => Editor.StatusMessage ?? "Не збережено",
+        _ => "Не збережено · повторити",
+    };
+
+    private Task Retry() => Failed ? Editor.RetryAsync() : Task.CompletedTask;
+}

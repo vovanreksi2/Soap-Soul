@@ -1,0 +1,17 @@
+@* Photo through Nocturne's .lighten blend, or the category icon when there is no photo. *@
+<div class="thumb @Class">
+    @if (string.IsNullOrEmpty(Photo))
+    {
+        <i class="ph @Icon"></i>
+    }
+    else
+    {
+        <div class="lighten"><div class="photo" style="background-image:url('@Photo')"></div></div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Photo { get; set; }
+    [Parameter] public string Icon { get; set; } = "ph-image";
+    [Parameter] public string? Class { get; set; }
+}

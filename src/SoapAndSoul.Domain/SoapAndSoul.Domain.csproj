@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared by client (WASM) and server: pure C#, no EF, no UI. -->
+</Project>

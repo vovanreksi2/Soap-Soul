@@ -1,0 +1,48 @@
+<Sheet Variant="tall" Label="Рецепти з інгредієнтом" OnClose="OnClose">
+    <div class="sheet-head">
+        <div class="grabber"></div>
+        <div class="sheet-title-row">
+            <div class="dialog-title">Рецепти з інгредієнтом</div>
+            @if (Selected is not null)
+            {
+                <button type="button" class="btn btn-ghost" @onclick="() => Pick.InvokeAsync(null)">Скинути</button>
+            }
+        </div>
+    </div>
+    <div class="sheet-body noscroll" style="gap:4px">
+        @if (_rows.Count == 0)
+        {
+            <div class="empty-note" style="padding:16px 4px">У рецептах ще немає інгредієнтів.</div>
+        }
+        @foreach (var (ing, count) in _rows)
+        {
+            <button type="button" class="filter-row @(ing.Id == Selected ? "on" : "")" @onclick="() => Pick.InvokeAsync(ing.Id)">
+                <i class="ph @Categories.Get(Line, ing.Category).Icon"></i>
+                <span class="name">@ing.Name</span>
+                <small>@count рец.</small>
+            </button>
+        }
+    </div>
+</Sheet>
+
+@code {
+    [Parameter, EditorRequired] public CosmeticLine Line { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<IngredientDto> Ingredients { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<RecipeDto> Recipes { get; set; } = [];
+    [Parameter] public Guid? Selected { get; set; }
+    [Parameter] public EventCallback<Guid?> Pick { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<(IngredientDto Ingredient, int Count)> _rows = [];
+
+    protected override void OnParametersSet()
+    {
+        var order = Categories.For(Line).Select(c => c.Key).ToList();
+        _rows = Ingredients
+            .Select(i => (Ingredient: i, Count: Recipes.Count(r => r.Items.Any(x => x.IngredientId == i.Id))))
+            .Where(x => x.Count > 0)
+            .OrderBy(x => order.IndexOf(x.Ingredient.Category))
+            .ThenBy(x => x.Ingredient.Name, UkrainianComparer.Instance)
+            .ToList();
+    }
+}

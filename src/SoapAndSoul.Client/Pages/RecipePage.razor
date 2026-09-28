@@ -1,0 +1,408 @@
+@page "/{LineSlug}/recipes/{Id:guid}"
+@implements IAsyncDisposable
+@inject CatalogState Catalog
+@inject ToastService Toasts
+@inject PhotoUploader Photos
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(_editor?.Draft.Name ?? "Рецепт") · Soap &amp; Soul</PageTitle>
+
+@if (_line is not { } line)
+{
+    <NotFound />
+    return;
+}
+
+<div class="screen">
+    <div class="topbar">
+        <button type="button" class="btn btn-ghost back" @onclick="BackAsync"><i class="ph ph-caret-left"></i>Рецепти</button>
+        @if (_editor is not null)
+        {
+            <div style="display:flex;align-items:center;gap:4px">
+                <SaveIndicator Editor="_editor" />
+                <button type="button" class="btn btn-icon btn-secondary trash" aria-label="Видалити рецепт" @onclick="() => _confirmDelete = true"><i class="ph ph-trash"></i></button>
+            </div>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <div class="center-state"><div class="spinner"></div></div>
+    }
+    else if (_editor is null)
+    {
+        <div class="center-state">
+            <i class="ph ph-question" style="font-size:32px"></i>
+            <div>Рецепт не знайдено. Можливо, його видалили.</div>
+            <button type="button" class="btn btn-primary" @onclick="BackAsync">До списку</button>
+        </div>
+    }
+    else
+    {
+        var r = _editor.Draft;
+        var capUnit = Categories.CapacityUnit(line);
+        var slots = BuildSlots(line, r);
+        var required = slots.Where(s => s.Category.Required).ToList();
+        var requiredDone = required.Count(s => s.Filled);
+        var cost = CostCalculator.RecipeCost(r, Catalog.Lookup);
+
+        <div class="scroll recipe-scroll noscroll">
+            <div class="hero">
+                <label class="hero-photo" aria-label="Змінити фото">
+                    <InputFile accept="image/png,image/jpeg,image/webp" OnChange="UploadPhotoAsync" />
+                    @if (string.IsNullOrEmpty(r.PhotoUrl))
+                    {
+                        <i class="ph @Categories.LineIcon(line)"></i>
+                    }
+                    else
+                    {
+                        <div class="lighten"><div class="photo" style="background-image:url('@r.PhotoUrl')"></div></div>
+                    }
+                    <span class="badge"><i class="ph ph-camera"></i></span>
+                    @if (_uploading) { <div class="busy"><div class="spinner"></div></div> }
+                </label>
+                <div class="hero-main">
+                    @if (_editing == Field.Title)
+                    {
+                        <input @ref="_focusTarget" class="input title-input" value="@r.Name" enterkeyhint="done" aria-label="Назва рецепта"
+                               @oninput="e => _editor.Update(d => d with { Name = e.Value?.ToString() ?? string.Empty })"
+                               @onblur="EndEdit" @onkeydown="OnKey" />
+                    }
+                    else
+                    {
+                        <button type="button" class="title-btn" @onclick="() => StartEdit(Field.Title)">
+                            <span>@(string.IsNullOrWhiteSpace(r.Name) ? "Без назви" : r.Name)</span><i class="ph ph-pencil-simple"></i>
+                        </button>
+                    }
+                    <div class="metrics">
+                        <div class="metric @(_editing == Field.Weight ? "on" : "")" @onclick="() => StartEdit(Field.Weight)">
+                            <i class="ph ph-scales"></i>
+                            @if (_editing == Field.Weight)
+                            {
+                                <input @ref="_focusTarget" type="number" inputmode="decimal" value="@Formatting.Input(r.Weight)" aria-label="Вага"
+                                       @oninput="e => _editor.Update(d => d with { Weight = Math.Max(0, Parse.Decimal(e.Value) ?? 0) })"
+                                       @onblur="EndEdit" @onkeydown="OnKey" />
+                            }
+                            else
+                            {
+                                <span>@Formatting.Amount(r.Weight, capUnit)</span>
+                            }
+                        </div>
+                        <div class="metric @(_editing == Field.Time ? "on" : "")" @onclick="() => StartEdit(Field.Time)">
+                            <i class="ph ph-timer"></i>
+                            @if (_editing == Field.Time)
+                            {
+                                <input @ref="_focusTarget" type="number" inputmode="numeric" value="@r.TimeMinutes" aria-label="Час, хв"
+                                       @oninput="e => _editor.Update(d => d with { TimeMinutes = (int)Math.Max(0, Parse.Decimal(e.Value) ?? 0) })"
+                                       @onblur="EndEdit" @onkeydown="OnKey" />
+                            }
+                            else
+                            {
+                                <span>@r.TimeMinutes хв</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <textarea class="input desc" placeholder="Опис рецепта…" aria-label="Опис" value="@r.Description"
+                      @oninput="e => _editor.Update(d => d with { Description = e.Value?.ToString() ?? string.Empty })"></textarea>
+
+            <div class="section-head">
+                <h4>Склад</h4>
+                <div class="req">
+                    <span>@(requiredDone == required.Count ? "Усе обов’язкове є" : $"Обов’язкові {requiredDone}/{required.Count}")</span>
+                    <div class="req-dots">@foreach (var s in required) {<span class="@(s.Filled ? "on" : "")"></span>}</div>
+                </div>
+            </div>
+
+            <div class="slots">
+                @foreach (var slot in slots.Where(s => s.Category.Required || s.Filled))
+                {
+                    var cat = slot.Category;
+                    <div class="slot @(slot.Filled ? "" : "empty")" @key="cat.Key">
+                        @if (!slot.Filled)
+                        {
+                            <button type="button" class="slot-empty" @onclick="() => OpenPicker(cat)">
+                                <span class="icon"><i class="ph @cat.Icon"></i></span>
+                                <span class="text">
+                                    <span class="label">@cat.Label</span>
+                                    <span class="status @(cat.Required ? "required" : "")">@(cat.Required ? "Обов’язково" : "Не обрано")</span>
+                                </span>
+                                <span class="cta">Обрати<i class="ph ph-caret-right"></i></span>
+                            </button>
+                        }
+                        @foreach (var (ing, amount) in slot.Items)
+                        {
+                            <div class="item" @key="ing.Id">
+                                <button type="button" class="item-main" @onclick="() => OpenPicker(cat)">
+                                    <Thumb Photo="@ing.PhotoUrl" Icon="@cat.Icon" />
+                                    <div class="text">
+                                        <div class="item-name">@ing.Name</div>
+                                        <div class="item-caption">
+                                            @cat.Label · @Formatting.Money(CostCalculator.ItemCost(ing, amount))
+                                            @if (cat.Single) { <i class="ph ph-arrows-clockwise" aria-label="Замінити"></i> }
+                                        </div>
+                                    </div>
+                                </button>
+                                @if (cat.HasCapacity)
+                                {
+                                    <span class="item-fixed">@Formatting.Amount(ing.Capacity ?? 0, capUnit)</span>
+                                }
+                                else
+                                {
+                                    <Stepper Value="amount" Step="ing.Unit.Step()" Unit="@ing.Unit.Label()" Label="@($"Кількість: {ing.Name}")"
+                                             ValueChanged="v => _editor.Update(d => d with { Items = SelectionEngine.SetAmount(d.Items, ing.Id, v) })" />
+                                }
+                                <button type="button" class="icon-btn remove" aria-label="Прибрати" @onclick="() => _editor.Update(d => d with { Items = SelectionEngine.Remove(d.Items, ing.Id) })">
+                                    <i class="ph ph-x"></i>
+                                </button>
+                            </div>
+                        }
+                        @if (slot.Filled && !cat.Single)
+                        {
+                            <button type="button" class="add-more" @onclick="() => OpenPicker(cat)"><i class="ph ph-plus"></i>Ще @cat.Label.ToLowerInvariant()</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @{ var extras = slots.Where(s => !s.Category.Required && !s.Filled).ToList(); }
+            @if (extras.Count > 0)
+            {
+                <div class="extras-label">Додати за бажанням</div>
+                <div class="extras">
+                    @foreach (var slot in extras)
+                    {
+                        var conflict = Categories.ExclusiveWith(line, slot.Category.Key) is { } other && slots.Any(s => s.Category.Key == other && s.Filled);
+                        <button type="button" class="extra @(conflict ? "conflict" : "")" @onclick="() => OpenPicker(slot.Category)">
+                            <i class="ph ph-plus"></i>@slot.Category.Label
+                            @if (conflict) { <i class="ph ph-arrows-left-right swap" aria-label="Замінить наявне"></i> }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="costbar">
+            <div class="cost">
+                <small>Собівартість · 1 шт</small>
+                <b>@Formatting.Money(cost)</b>
+            </div>
+            <div class="batch">
+                <Stepper Value="r.BatchSize" Min="1" Unit="шт" Label="Партія, шт"
+                         ValueChanged="v => _editor.Update(d => d with { BatchSize = (int)Math.Max(1, Math.Round(v)) })" />
+                <div class="batch-total">Партія: <span>@Formatting.Money(cost * r.BatchSize) · @Formatting.Weight(r.Weight * r.BatchSize, line)</span></div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_editor is not null && _picker is { } pickerCat)
+{
+    <PickerSheet Category="pickerCat"
+                 Options="Catalog.Ingredients(line).Where(i => i.Category == pickerCat.Key).ToList()"
+                 Selected="_editor.Draft.Items.Select(i => i.IngredientId).ToHashSet()"
+                 Toggle="ToggleAsync" Edit="ing => _form = (pickerCat, ing)" Add="() => _form = (pickerCat, null)"
+                 OnClose="() => _picker = null" />
+}
+
+@if (_form is { } form)
+{
+    <IngredientSheet Line="line" Category="form.Category" Existing="form.Existing"
+                     OnClose="() => _form = null" OnSaved="IngredientSavedAsync" OnDeleted="DeleteIngredientAsync" />
+}
+
+@if (_confirmDelete && _editor is not null)
+{
+    <ConfirmSheet Title="Видалити рецепт?" Message="@($"«{_editor.Draft.Name}» зникне зі списку.")"
+                  OnConfirm="DeleteRecipeAsync" OnCancel="() => _confirmDelete = false" />
+}
+
+@code {
+    [Parameter] public string? LineSlug { get; set; }
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery(Name = "new")] public bool IsNew { get; set; }
+
+    private enum Field { None, Title, Weight, Time }
+
+    private sealed record Slot(CategoryDefinition Category, List<(IngredientDto Ingredient, decimal Amount)> Items)
+    {
+        public bool Filled => Items.Count > 0;
+    }
+
+    private CosmeticLine? _line;
+    private RecipeEditor? _editor;
+    private bool _loading = true;
+    private bool _uploading;
+    private bool _confirmDelete;
+    private bool _deleted;
+    private Field _editing;
+    private bool _focusPending;
+    private ElementReference _focusTarget;
+    private CategoryDefinition? _picker;
+    private (CategoryDefinition Category, IngredientDto? Existing)? _form;
+    private DotNetObjectReference<RecipePage>? _selfRef;
+    private IJSObjectReference? _hiddenHook;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _line = Lines.FromSlug(LineSlug);
+        if (_line is not { } line || _editor?.Draft.Id == Id) return;
+        _loading = true;
+        try { await Catalog.EnsureLoadedAsync(line); }
+        catch (HttpRequestException) { Toasts.Show("Немає з’єднання з сервером", ToastKind.Error); }
+        _loading = false;
+
+        if (Catalog.Recipe(line, Id) is { } recipe)
+        {
+            _editor = new RecipeEditor(recipe, Catalog, Toasts);
+            _editor.Changed += () => InvokeAsync(StateHasChanged);
+            if (IsNew) StartEdit(Field.Title);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_editor is not null && _selfRef is null)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            _hiddenHook = await JS.InvokeAsync<IJSObjectReference>("soapAndSoul.onHidden", _selfRef);
+        }
+        if (_focusPending)
+        {
+            _focusPending = false;
+            await JS.InvokeVoidAsync("soapAndSoul.focus", _focusTarget);
+        }
+    }
+
+    /// <summary>Called from JS when the app goes to the background.</summary>
+    [JSInvokable]
+    public Task FlushAsync() => _editor?.FlushAsync() ?? Task.CompletedTask;
+
+    private List<Slot> BuildSlots(CosmeticLine line, RecipeDto r)
+    {
+        var items = r.Items
+            .Select(i => (Ingredient: Catalog.Ingredient(i.IngredientId), i.Amount))
+            .Where(x => x.Ingredient is not null)
+            .Select(x => (x.Ingredient!, x.Amount))
+            .ToList();
+        return Categories.For(line)
+            .Select(c => new Slot(c, items.Where(x => x.Item1.Category == c.Key).ToList()))
+            .ToList();
+    }
+
+    private void StartEdit(Field field)
+    {
+        if (_editing == field) return;
+        _editing = field;
+        _focusPending = true;
+    }
+
+    private void EndEdit() => _editing = Field.None;
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape") EndEdit();
+    }
+
+    private void OpenPicker(CategoryDefinition category)
+    {
+        _editing = Field.None;
+        _picker = category;
+    }
+
+    private async Task ToggleAsync(IngredientDto ingredient)
+    {
+        if (_editor is null) return;
+        var d = _editor.Draft;
+        var result = SelectionEngine.Default.Toggle(d.Line, d.Items, d.Weight, ingredient, Catalog.Lookup);
+        _editor.Update(x => x with { Items = result.Items, Weight = result.Weight });
+        foreach (var notice in result.Notices) Toasts.Show(notice, ToastKind.Info);
+        if (result.Added && result.ClosePicker)
+        {
+            await Task.Delay(180);
+            _picker = null;
+        }
+    }
+
+    private async Task IngredientSavedAsync((IngredientDto Ingredient, bool Created) e)
+    {
+        _form = null;
+        if (e.Created)
+        {
+            await ToggleAsync(e.Ingredient);
+            Toasts.Show("Додано в рецепт");
+        }
+        else Toasts.Show("Інгредієнт оновлено");
+    }
+
+    private async Task DeleteIngredientAsync(IngredientDto ingredient)
+    {
+        if (_editor is null) return;
+        await _editor.FlushAsync();
+        try
+        {
+            await Catalog.DeleteIngredientAsync(ingredient);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Show("Не вдалося видалити", ToastKind.Error);
+            return;
+        }
+        // The server removed it from every recipe and bumped their versions.
+        if (Catalog.Recipe(_editor.Line, _editor.Draft.Id) is { } fresh) _editor.ReplaceFromServer(fresh);
+        _form = null;
+        Toasts.Show("Інгредієнт видалено", ToastKind.Deleted);
+    }
+
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        if (_editor is null) return;
+        _uploading = true;
+        try
+        {
+            var url = await Photos.UploadAsync(e.File);
+            _editor.Update(d => d with { PhotoUrl = url });
+        }
+        catch (Exception)
+        {
+            Toasts.Show("Не вдалося завантажити фото", ToastKind.Error);
+        }
+        finally { _uploading = false; }
+    }
+
+    private async Task DeleteRecipeAsync()
+    {
+        if (_editor is null) return;
+        try
+        {
+            await Catalog.DeleteRecipeAsync(_editor.Draft);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Show("Не вдалося видалити", ToastKind.Error);
+            return;
+        }
+        _deleted = true;
+        Toasts.Show("Рецепт видалено", ToastKind.Deleted);
+        Nav.NavigateTo(Lines.ListUrl(_editor.Line));
+    }
+
+    private void BackAsync() => Nav.NavigateTo(Lines.ListUrl(_line ?? CosmeticLine.Soap));
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hiddenHook is not null)
+        {
+            try { await _hiddenHook.InvokeVoidAsync("dispose"); await _hiddenHook.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
+        _selfRef?.Dispose();
+        if (_editor is null || _deleted) return;
+        await _editor.FlushAsync();
+        if (_editor.SavedAnything) Toasts.Show("Рецепт оновлено");
+        _editor.Dispose();
+    }
+}

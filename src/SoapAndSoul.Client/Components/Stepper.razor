@@ -1,0 +1,18 @@
+<div class="stepper">
+    <button type="button" aria-label="Менше" @onclick="() => Set(Value - Step)"><i class="ph ph-minus"></i></button>
+    <input type="number" inputmode="decimal" value="@Formatting.Input(Value)" aria-label="@Label"
+           @onchange="e => Set(Parse.Decimal(e.Value) ?? Min)" />
+    <span class="unit">@Unit</span>
+    <button type="button" aria-label="Більше" @onclick="() => Set(Value + Step)"><i class="ph ph-plus"></i></button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public decimal Value { get; set; }
+    [Parameter] public decimal Step { get; set; } = 1;
+    [Parameter] public decimal Min { get; set; }
+    [Parameter] public string? Unit { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public EventCallback<decimal> ValueChanged { get; set; }
+
+    private Task Set(decimal value) => ValueChanged.InvokeAsync(Math.Max(Min, value));
+}

@@ -1,0 +1,9 @@
+@if (Errors is not null && Errors.TryGetValue(Field, out var messages))
+{
+    <div class="field-error">@string.Join(" ", messages)</div>
+}
+
+@code {
+    [Parameter] public IReadOnlyDictionary<string, string[]>? Errors { get; set; }
+    [Parameter, EditorRequired] public string Field { get; set; } = "";
+}

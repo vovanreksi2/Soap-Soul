@@ -1,0 +1,16 @@
+@* Bottom sheet over a scrim. Tapping the scrim closes it. *@
+<div class="scrim @(Top ? "top" : "")" @onclick="OnClose">
+    <div class="sheet @Variant @Class" role="dialog" aria-modal="true" aria-label="@Label" @onclick:stopPropagation="true">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// <summary>full (picker), tall (filter) or form (scrolling form).</summary>
+    [Parameter] public string Variant { get; set; } = "tall";
+    [Parameter] public bool Top { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
