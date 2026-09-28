@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
   <PropertyGroup>
-    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     <!-- No ICU download: numbers are formatted with a fixed uk-UA format in Domain/Formatting.cs. -->
     <InvariantGlobalization>true</InvariantGlobalization>

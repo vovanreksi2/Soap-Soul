@@ -1,0 +1,207 @@
+@page "/{LineSlug}"
+@implements IDisposable
+@inject CatalogState Catalog
+@inject ListState ListState
+@inject ToastService Toasts
+@inject NavigationManager Nav
+
+<PageTitle>Рецепти · Soap &amp; Soul</PageTitle>
+
+@if (_line is not { } line)
+{
+    <NotFound />
+    return;
+}
+
+<div class="screen">
+    <div class="scroll list-scroll noscroll">
+        <div class="list-head">
+            <h3>Рецепти</h3>
+            <LineSwitch Current="line" Select="SwitchLine" />
+        </div>
+
+        <div class="search">
+            <i class="ph ph-magnifying-glass"></i>
+            <input class="input" type="search" enterkeyhint="search" placeholder="Пошук за назвою чи описом"
+                   value="@Filters.Query" @oninput="e => Filters.Query = e.Value?.ToString() ?? string.Empty" />
+        </div>
+
+        <div class="chips">
+            <button type="button" class="chip sort" @onclick="CycleSort"><i class="ph @SortIcon"></i>@SortLabel</button>
+            <button type="button" class="chip filter @(FilterIngredient is null ? "" : "on")" @onclick="() => _filterOpen = true">
+                <i class="ph ph-funnel"></i><span>@(FilterIngredient?.Name ?? "Інгредієнт")</span>
+                @if (FilterIngredient is not null)
+                {
+                    <span class="clear" role="button" aria-label="Скинути фільтр" @onclick="ClearFilter" @onclick:stopPropagation="true"><i class="ph ph-x"></i></span>
+                }
+            </button>
+        </div>
+
+        @if (_loadError)
+        {
+            <div class="center-state">
+                <div>Не вдалося завантажити рецепти.</div>
+                <button type="button" class="btn btn-primary" @onclick="() => LoadAsync(force: true)">Спробувати ще</button>
+            </div>
+        }
+        else if (_loading)
+        {
+            <div class="center-state"><div class="spinner"></div></div>
+        }
+        else
+        {
+            var shown = Shown(line);
+            if (shown.Count == 0)
+            {
+                <div class="empty-note">@(Catalog.Recipes(line).Count == 0 ? "Рецептів ще немає. Створіть перший!" : "Нічого не знайдено.")</div>
+            }
+            <div class="rows">
+                @foreach (var (recipe, cost) in shown)
+                {
+                    <RecipeRow @key="recipe.Id" Recipe="recipe" Cost="cost"
+                               Open="() => Nav.NavigateTo(Lines.RecipeUrl(line, recipe.Id))"
+                               Duplicate="() => DuplicateAsync(recipe)"
+                               Delete="() => _confirmDelete = recipe" />
+                }
+            </div>
+        }
+    </div>
+
+    <div class="bottom-cta">
+        <button type="button" class="btn btn-primary" disabled="@_creating" @onclick="CreateAsync"><i class="ph ph-plus"></i>Новий рецепт</button>
+    </div>
+</div>
+
+@if (_filterOpen)
+{
+    <FilterSheet Line="line" Ingredients="Catalog.Ingredients(line)" Recipes="Catalog.Recipes(line)" Selected="Filters.IngredientId"
+                 Pick="PickFilter" OnClose="() => _filterOpen = false" />
+}
+
+@if (_confirmDelete is { } toDelete)
+{
+    <ConfirmSheet Title="Видалити рецепт?" Message="@($"«{toDelete.Name}» зникне зі списку.")"
+                  OnConfirm="() => DeleteAsync(toDelete)" OnCancel="() => _confirmDelete = null" />
+}
+
+@code {
+    [Parameter] public string? LineSlug { get; set; }
+
+    private CosmeticLine? _line;
+    private bool _loading = true;
+    private bool _loadError;
+    private bool _filterOpen;
+    private bool _creating;
+    private RecipeDto? _confirmDelete;
+
+    private ListState.Filters Filters => ListState.For(_line ?? CosmeticLine.Soap);
+    private IngredientDto? FilterIngredient => Filters.IngredientId is { } id ? Catalog.Ingredient(id) : null;
+
+    private string SortLabel => Filters.Sort switch
+    {
+        RecipeSort.Cheapest => "Дешевші спершу",
+        RecipeSort.Priciest => "Дорожчі спершу",
+        _ => "За назвою",
+    };
+
+    private string SortIcon => Filters.Sort switch
+    {
+        RecipeSort.Cheapest => "ph-arrow-up",
+        RecipeSort.Priciest => "ph-arrow-down",
+        _ => "ph-sort-ascending",
+    };
+
+    protected override void OnInitialized() => Catalog.Changed += OnCatalogChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _line = Lines.FromSlug(LineSlug);
+        if (_line is { } line) ListState.LastLine = line;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync(bool force = false)
+    {
+        if (_line is not { } line) return;
+        _loadError = false;
+        _loading = true;
+        try { await Catalog.EnsureLoadedAsync(line, force); }
+        catch (HttpRequestException) { _loadError = true; }
+        finally { _loading = false; }
+    }
+
+    private List<(RecipeDto Recipe, decimal Cost)> Shown(CosmeticLine line)
+    {
+        var rows = Catalog.Recipes(line)
+            .Where(r => FuzzyMatcher.Matches(Filters.Query, r.Name + " " + r.Description))
+            .Where(r => Filters.IngredientId is not { } id || r.Items.Any(i => i.IngredientId == id))
+            .Select(r => (Recipe: r, Cost: CostCalculator.RecipeCost(r, Catalog.Lookup)));
+        return (Filters.Sort switch
+        {
+            RecipeSort.Cheapest => rows.OrderBy(x => x.Cost),
+            RecipeSort.Priciest => rows.OrderByDescending(x => x.Cost),
+            _ => rows.OrderBy(x => x.Recipe.Name, UkrainianComparer.Instance),
+        }).ToList();
+    }
+
+    private void SwitchLine(CosmeticLine line)
+    {
+        if (line != _line) Nav.NavigateTo(Lines.ListUrl(line));
+    }
+
+    private void CycleSort() => Filters.Sort = Filters.Sort switch
+    {
+        RecipeSort.Name => RecipeSort.Cheapest,
+        RecipeSort.Cheapest => RecipeSort.Priciest,
+        _ => RecipeSort.Name,
+    };
+
+    private void PickFilter(Guid? id)
+    {
+        Filters.IngredientId = id;
+        _filterOpen = false;
+    }
+
+    private void ClearFilter() => Filters.IngredientId = null;
+
+    private async Task CreateAsync()
+    {
+        if (_line is not { } line) return;
+        _creating = true;
+        var recipe = new RecipeDto(Guid.CreateVersion7(), line, "Новий рецепт", "", 0, 0, 1, null, []);
+        var result = await Catalog.SaveRecipeAsync(recipe);
+        _creating = false;
+        if (result is SaveResult<RecipeDto>.Saved)
+        {
+            Toasts.Show("Рецепт створено");
+            Nav.NavigateTo(Lines.RecipeUrl(line, recipe.Id) + "?new=true");
+        }
+        else Toasts.Show("Не вдалося створити рецепт", ToastKind.Error);
+    }
+
+    private async Task DuplicateAsync(RecipeDto source)
+    {
+        var copy = source with { Id = Guid.CreateVersion7(), Name = source.Name + " (копія)", Version = null, UpdatedAt = null };
+        var result = await Catalog.SaveRecipeAsync(copy);
+        Toasts.Show(result is SaveResult<RecipeDto>.Saved ? "Рецепт продубльовано" : "Не вдалося продублювати",
+            result is SaveResult<RecipeDto>.Saved ? ToastKind.Ok : ToastKind.Error);
+    }
+
+    private async Task DeleteAsync(RecipeDto recipe)
+    {
+        try
+        {
+            await Catalog.DeleteRecipeAsync(recipe);
+            Toasts.Show("Рецепт видалено", ToastKind.Deleted);
+        }
+        catch (HttpRequestException)
+        {
+            Toasts.Show("Не вдалося видалити", ToastKind.Error);
+        }
+        _confirmDelete = null;
+    }
+
+    private void OnCatalogChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Catalog.Changed -= OnCatalogChanged;
+}

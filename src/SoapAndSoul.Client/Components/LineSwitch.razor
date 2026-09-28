@@ -1,0 +1,14 @@
+<div class="seg">
+    @foreach (var line in Lines.All)
+    {
+        <button type="button" class="seg-btn @(line == Current ? "on" : "")" aria-pressed="@(line == Current)"
+                @onclick="() => Select.InvokeAsync(line)">
+            <i class="ph @Categories.LineIcon(line)"></i>@Categories.LineLabel(line)
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CosmeticLine Current { get; set; }
+    [Parameter] public EventCallback<CosmeticLine> Select { get; set; }
+}

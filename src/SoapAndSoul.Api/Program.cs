@@ -28,9 +28,10 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment()) app.UseWebAssemblyDebugging();
 
-app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 app.UseImageFiles();
+// Serves the client's _framework files by their plain names (fingerprinted and Brotli-compressed on disk).
+app.MapStaticAssets();
 
 var api = app.MapGroup("/api");
 api.MapIngredientEndpoints();

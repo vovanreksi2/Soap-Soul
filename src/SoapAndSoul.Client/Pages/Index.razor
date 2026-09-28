@@ -1,0 +1,8 @@
+@page "/"
+@inject NavigationManager Nav
+@inject ListState ListState
+
+@code {
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(Lines.ListUrl(ListState.LastLine), replace: true);
+}

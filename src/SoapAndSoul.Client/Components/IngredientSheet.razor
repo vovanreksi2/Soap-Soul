@@ -1,0 +1,231 @@
+@inject CatalogState Catalog
+@inject ToastService Toasts
+@inject PhotoUploader Photos
+
+<Sheet Variant="form" Top="true" Label="@Title" OnClose="OnClose">
+    <div class="grabber"></div>
+    <div class="form-head">
+        <div class="dialog-title">@Title</div>
+        @if (Existing is not null)
+        {
+            <button type="button" class="btn btn-icon" aria-label="Видалити інгредієнт" @onclick="() => _confirmDelete = true"><i class="ph ph-trash"></i></button>
+        }
+    </div>
+
+    <div class="form-top">
+        <label class="form-photo">
+            <InputFile accept="image/png,image/jpeg,image/webp" OnChange="UploadPhotoAsync" />
+            @if (!string.IsNullOrEmpty(_photo))
+            {
+                <div class="lighten"><div class="photo" style="background-image:url('@_photo')"></div></div>
+            }
+            <div class="label">
+                @if (_uploading) { <div class="spinner"></div> }
+                else { <i class="ph ph-camera"></i><span>Фото</span> }
+            </div>
+        </label>
+        <div class="field form-name">
+            <label for="ing-name">Назва</label>
+            <input id="ing-name" class="input" placeholder="Напр. Лаванда французька" value="@_name" @oninput="e => _name = e.Value?.ToString() ?? string.Empty" />
+            <FieldError Errors="_errors" Field="@nameof(IngredientDto.Name)" />
+        </div>
+    </div>
+
+    @if (Category.Units.Count > 1)
+    {
+        <div class="field">
+            <label>Одиниця виміру</label>
+            <div class="seg units">
+                @foreach (var unit in Category.Units)
+                {
+                    <button type="button" class="seg-btn @(unit == _unit ? "on" : "")" @onclick="() => _unit = unit">
+                        <i class="ph @UnitIcon(unit)"></i>@unit.Label()
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="field">
+        <label for="ing-portion">@PortionLabel</label>
+        <div class="suffixed">
+            <input id="ing-portion" class="input" type="number" inputmode="decimal" placeholder="0" value="@_portion" @oninput="e => _portion = e.Value?.ToString() ?? string.Empty" />
+            <span>@PortionUnit.Label()</span>
+        </div>
+        <FieldError Errors="_errors" Field="@(Category.HasCapacity ? nameof(IngredientDto.Capacity) : nameof(IngredientDto.TypicalAmount))" />
+    </div>
+
+    <div class="field">
+        <label>Покупка</label>
+        <div class="purchase">
+            <div class="suffixed">
+                <input class="input" type="number" inputmode="decimal" placeholder="0" aria-label="Кількість" value="@_buyQty" @oninput="e => _buyQty = e.Value?.ToString() ?? string.Empty" />
+                <span>@_unit.PurchaseUnit().Label()</span>
+            </div>
+            <span class="times">×</span>
+            <div class="suffixed">
+                <input class="input" type="number" inputmode="decimal" placeholder="0" aria-label="Ціна" value="@_buyPrice" @oninput="e => _buyPrice = e.Value?.ToString() ?? string.Empty" />
+                <span>грн</span>
+            </div>
+        </div>
+    </div>
+
+    @if (Category.Amortized)
+    {
+        <div class="field">
+            <label for="ing-uses">Використань однієї форми</label>
+            <div class="suffixed">
+                <input id="ing-uses" class="input" type="number" inputmode="numeric" placeholder="@Categories.DefaultMoldUses" value="@_uses" @oninput="e => _uses = e.Value?.ToString() ?? string.Empty" />
+                <span>разів</span>
+            </div>
+        </div>
+    }
+
+    <div class="hint-box"><i class="ph ph-lightbulb"></i><span>@HintText</span></div>
+
+    <div class="form-actions">
+        <button type="button" class="btn btn-secondary" @onclick="OnClose">Скасувати</button>
+        <button type="button" class="btn btn-primary" disabled="@(!Build().Valid || _saving || _uploading)" @onclick="SubmitAsync">@(Existing is null ? "Додати" : "Оновити")</button>
+    </div>
+</Sheet>
+
+@if (_confirmDelete && Existing is not null)
+{
+    <ConfirmSheet Title="Видалити інгредієнт?" Message="@($"«{Existing.Name}» зникне з каталогу й з усіх рецептів.")"
+                  OnConfirm="DeleteAsync" OnCancel="() => _confirmDelete = false" />
+}
+
+@code {
+    [Parameter, EditorRequired] public CosmeticLine Line { get; set; }
+    [Parameter, EditorRequired] public CategoryDefinition Category { get; set; } = null!;
+    [Parameter] public IngredientDto? Existing { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    /// <summary>Called with the saved ingredient and whether it was just created.</summary>
+    [Parameter] public EventCallback<(IngredientDto Ingredient, bool Created)> OnSaved { get; set; }
+    [Parameter] public EventCallback<IngredientDto> OnDeleted { get; set; }
+
+    private string _name = "";
+    private MeasureUnit _unit;
+    private string _portion = "";
+    private string _buyQty = "";
+    private string _buyPrice = "";
+    private string _uses = "";
+    private string? _photo;
+    private bool _uploading;
+    private bool _saving;
+    private bool _confirmDelete;
+    private IReadOnlyDictionary<string, string[]>? _errors;
+
+    private string Title => (Existing is null ? "Новий: " : "Редагувати: ") + Category.Label.ToLowerInvariant();
+
+    private MeasureUnit PortionUnit => Category.HasCapacity ? Categories.CapacityUnit(Line) : _unit;
+
+    private string PortionLabel => Category.HasCapacity
+        ? (Line == CosmeticLine.Soap ? "Вага мила (г)" : "Об’єм флакона (мл)")
+        : "Типова порція на рецепт";
+
+    protected override void OnInitialized()
+    {
+        _unit = Existing?.Unit ?? Category.DefaultUnit;
+        if (Existing is not { } e)
+        {
+            _uses = Category.Amortized ? Categories.DefaultMoldUses.ToString(CultureInfo.InvariantCulture) : "";
+            return;
+        }
+        _name = e.Name;
+        _portion = Formatting.Input(Category.HasCapacity ? e.Capacity ?? 0 : e.TypicalAmount);
+        _buyQty = Formatting.Input(e.PurchaseQuantity);
+        _buyPrice = Formatting.Input(e.PurchasePrice);
+        _uses = e.UsesPerItem.ToString(CultureInfo.InvariantCulture);
+        _photo = e.PhotoUrl;
+    }
+
+    private (IngredientDto Dto, bool Valid) Build()
+    {
+        var portion = Parse.Decimal(_portion) ?? 0;
+        var uses = Category.Amortized ? (int)(Parse.Decimal(_uses) ?? Categories.DefaultMoldUses) : 1;
+        var dto = new IngredientDto(
+            Existing?.Id ?? _newId, Line, Category.Key, _name.Trim(), _unit,
+            TypicalAmount: Category.HasCapacity ? 1 : portion,
+            PurchaseQuantity: Parse.Decimal(_buyQty) ?? 0,
+            PurchasePrice: Parse.Decimal(_buyPrice) ?? 0,
+            Capacity: Category.HasCapacity ? portion : null,
+            UsesPerItem: uses,
+            PhotoUrl: _photo,
+            Version: Existing?.Version);
+        return (dto, SoapAndSoul.Domain.Validation.IngredientValidator.Validate(dto).IsValid);
+    }
+
+    private readonly Guid _newId = Guid.CreateVersion7();
+
+    private string HintText
+    {
+        get
+        {
+            var (dto, _) = Build();
+            if (dto.PurchaseQuantity <= 0 || dto.PurchasePrice <= 0) return "Вкажіть покупку — порахуємо ціну за одиницю";
+            var perUnit = Formatting.Money(CostCalculator.UnitPrice(dto.Unit, dto.PurchaseQuantity, dto.PurchasePrice));
+            var text = $"Ціна за {dto.Unit.Label()}: {perUnit}";
+            if (dto.Unit == MeasureUnit.Drop) text += $" · 1 мл = {Units.DropsPerMilliliter} крап";
+            if (Category.Amortized && dto.UsesPerItem > 1) text += $" · у рецепт: {Formatting.Money(CostCalculator.UnitPrice(dto))}";
+            return text;
+        }
+    }
+
+    private static string UnitIcon(MeasureUnit unit) => unit switch
+    {
+        MeasureUnit.Drop => "ph-drop",
+        MeasureUnit.Gram => "ph-scales",
+        MeasureUnit.Milliliter => "ph-beaker",
+        _ => "ph-hash",
+    };
+
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        _uploading = true;
+        try { _photo = await Photos.UploadAsync(e.File); }
+        catch (Exception) { Toasts.Show("Не вдалося завантажити фото", ToastKind.Error); }
+        finally { _uploading = false; }
+    }
+
+    private async Task SubmitAsync()
+    {
+        var (dto, valid) = Build();
+        if (!valid) return;
+        _saving = true;
+        var result = await Catalog.SaveIngredientAsync(dto);
+        _saving = false;
+        switch (result)
+        {
+            case SaveResult<IngredientDto>.Saved { Value: var saved }:
+                await OnSaved.InvokeAsync((saved, Existing is null));
+                break;
+            case SaveResult<IngredientDto>.Conflict:
+                Toasts.Show("Інгредієнт змінили на іншому пристрої — відкрийте ще раз", ToastKind.Info);
+                await OnClose.InvokeAsync();
+                break;
+            case SaveResult<IngredientDto>.Invalid { Errors: var errors }:
+                _errors = errors;
+                break;
+            case SaveResult<IngredientDto>.Missing:
+                Toasts.Show("Інгредієнт уже видалено", ToastKind.Error);
+                await OnClose.InvokeAsync();
+                break;
+            case SaveResult<IngredientDto>.Failed { Message: var message }:
+                Toasts.Show(message, ToastKind.Error);
+                break;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        try
+        {
+            await OnDeleted.InvokeAsync(Existing!);
+        }
+        finally
+        {
+            _confirmDelete = false;
+        }
+    }
+}

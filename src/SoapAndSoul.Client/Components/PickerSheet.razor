@@ -1,0 +1,61 @@
+@* Full-height sheet with the ingredients of one category. Tap toggles; single-choice categories close after a pick. *@
+<Sheet Variant="full" Label="@Category.Label" OnClose="OnClose">
+    <div class="sheet-head">
+        <div class="grabber"></div>
+        <div class="sheet-title-row">
+            <i class="ph @Category.Icon"></i>
+            <div class="dialog-title">@Category.Label</div>
+            <button type="button" class="btn btn-ghost" @onclick="OnClose">Готово</button>
+        </div>
+        <div class="sheet-hint"><i class="ph ph-info"></i><span>@Category.Hint</span></div>
+        @if (Options.Count > 6)
+        {
+            <div class="pick-search">
+                <i class="ph ph-magnifying-glass"></i>
+                <input class="input" type="search" placeholder="Пошук" value="@_query" @oninput="e => _query = e.Value?.ToString() ?? string.Empty" />
+            </div>
+        }
+    </div>
+    <div class="sheet-body noscroll">
+        @foreach (var ing in Options.Where(i => FuzzyMatcher.Matches(_query, i.Name)))
+        {
+            var selected = Selected.Contains(ing.Id);
+            <div class="pick @(selected ? "on" : "")" role="checkbox" aria-checked="@selected" tabindex="0"
+                 @onclick="() => Toggle.InvokeAsync(ing)">
+                <Thumb Photo="@ing.PhotoUrl" Icon="@Category.Icon" />
+                <div class="text">
+                    <div class="name">@ing.Name</div>
+                    <div class="price">@PriceText(ing)</div>
+                </div>
+                <button type="button" class="icon-btn edit" aria-label="Редагувати" @onclick="() => Edit.InvokeAsync(ing)" @onclick:stopPropagation="true">
+                    <i class="ph ph-pencil-simple"></i>
+                </button>
+                <span class="check">@if (selected) {<i class="ph ph-check"></i>}</span>
+            </div>
+        }
+        <button type="button" class="pick-add" @onclick="Add"><span><i class="ph ph-plus"></i></span>Новий: @Category.Label.ToLowerInvariant()</button>
+    </div>
+</Sheet>
+
+@code {
+    [Parameter, EditorRequired] public CategoryDefinition Category { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyList<IngredientDto> Options { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlySet<Guid> Selected { get; set; } = new HashSet<Guid>();
+    [Parameter] public EventCallback<IngredientDto> Toggle { get; set; }
+    [Parameter] public EventCallback<IngredientDto> Edit { get; set; }
+    [Parameter] public EventCallback Add { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _query = "";
+
+    private string PriceText(IngredientDto i)
+    {
+        var unitPrice = Formatting.Money(CostCalculator.UnitPrice(i));
+        if (Category.HasCapacity)
+        {
+            var text = $"{Formatting.Amount(i.Capacity ?? 0, Categories.CapacityUnit(i.Line))} · {unitPrice}";
+            return i.UsesPerItem > 1 ? $"{text} за використання" : text;
+        }
+        return $"{unitPrice} / {i.Unit.Label()} · типово {Formatting.Amount(i.TypicalAmount, i.Unit)}";
+    }
+}

@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-b58ed520-62d7-45ef-bb0f-68f1677f0c94/styles.css">
+<script src="_ds/nocturne-b58ed520-62d7-45ef-bb0f-68f1677f0c94/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style>body{margin:0;background:var(--color-bg)}a{color:var(--color-accent)}a:hover{color:var(--color-accent-300)}input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.noscroll::-webkit-scrollbar{display:none}@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;gap:48px;align-items:flex-start;justify-content:center;padding:40px 24px;background:radial-gradient(ellipse at 20% 10%, var(--color-accent-900), var(--color-bg) 55%);font-family:var(--font-body);color:var(--color-text)">
+  <div style="max-width:300px;display:flex;flex-direction:column;gap:12px;padding-top:24px">
+    <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent)">Прототип · v2 · слоти</div>
+    <h2 style="margin:0;font-size:32px">Soap &amp; Soul</h2>
+    <p style="margin:0;font-size:14px;color:var(--color-neutral-400);text-wrap:pretty">Окремого екрана підбору більше немає. Рецепт складається зі слотів: тап по слоту — панель лише з цією категорією. Порожні обов'язкові слоти видно одразу.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--color-neutral-300);margin-top:8px">
+      <div style="display:flex;gap:8px"><i class="ph ph-squares-four" style="font-size:16px;color:var(--color-accent)"></i><span>Пунктирний слот — обов'язковий, ще не заповнений</span></div>
+      <div style="display:flex;gap:8px"><i class="ph ph-stack" style="font-size:16px;color:var(--color-accent)"></i><span>Партія внизу: N шт → загальна ціна</span></div>
+      <div style="display:flex;gap:8px"><i class="ph ph-hand-swipe-left" style="font-size:16px;color:var(--color-accent)"></i><span>Свайп рядка — дублювати або видалити</span></div>
+      <div style="display:flex;gap:8px"><i class="ph ph-funnel" style="font-size:16px;color:var(--color-accent)"></i><span>Сортування за ціною та фільтр за інгредієнтом</span></div>
+    </div>
+  </div>
+
+  <div style="position:relative;width:390px;height:844px;flex:none;border-radius:48px;overflow:hidden;background:var(--color-bg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+    <div style="height:48px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 34px;font-size:15px;font-weight:600">
+      <span>9:41</span>
+      <div style="display:flex;gap:6px;font-size:16px"><i class="ph ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph ph-battery-full"></i></div>
+    </div>
+
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div class="noscroll" style="flex:1;overflow-y:auto;padding:4px 16px 110px;scrollbar-width:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px">
+          <h3 style="margin:0;font-size:28px">Рецепти</h3>
+          <div class="seg">
+            <sc-for list="{{ lines }}" as="l" hint-placeholder-count="2">
+              <button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:6px;padding:8px 12px;font:inherit;font-size:13px;border:0;cursor:pointer;background:{{ l.bg }};color:{{ l.color }};box-shadow:{{ l.shadow }}"><i class="ph {{ l.icon }}" style="font-size:15px"></i>{{ l.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="position:relative;margin-bottom:10px">
+          <i class="ph ph-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--color-neutral-500)"></i>
+          <input class="input" value="{{ query }}" onChange="{{ onQuery }}" placeholder="Пошук за назвою чи описом" style="min-height:44px;padding-left:36px;font-size:15px">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button onClick="{{ cycleSort }}" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:0;cursor:pointer;font:inherit;font-size:13px;background:var(--color-surface);color:var(--color-neutral-300);box-shadow:inset 0 0 0 1px var(--color-neutral-800)"><i class="ph {{ sortIcon }}" style="font-size:15px"></i>{{ sortLabel }}</button>
+          <button onClick="{{ openFilter }}" style="flex:0 1 auto;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:0;cursor:pointer;font:inherit;font-size:13px;min-width:0;background:{{ filterBg }};color:{{ filterColor }};box-shadow:{{ filterShadow }}"><i class="ph ph-funnel" style="font-size:15px;flex:none"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ filterLabel }}</span>
+            <sc-if value="{{ hasFilter }}"><span onClick="{{ clearFilter }}" style="display:grid;place-items:center;width:20px;height:20px;margin-right:-4px;flex:none"><i class="ph ph-x" style="font-size:13px"></i></span></sc-if>
+          </button>
+        </div>
+        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:40px 8px;color:var(--color-neutral-400);font-size:14px">Нічого не знайдено.</div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ recipeRows }}" as="r" hint-placeholder-count="4">
+            <div class="noscroll" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:var(--radius-lg)">
+              <button onClick="{{ r.open }}" style="flex:none;width:100%;scroll-snap-align:start;display:flex;align-items:center;gap:12px;padding:10px;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit;background:var(--color-surface);border-radius:var(--radius-lg)">
+                <div style="width:64px;height:64px;flex:none;border-radius:var(--radius-md);overflow:hidden;display:grid;place-items:center;background:linear-gradient(145deg,var(--color-accent-800),var(--color-neutral-900));color:var(--color-accent-300);font-size:24px">
+                  <sc-if value="{{ r.hasPhoto }}"><div class="lighten" style="width:100%;height:100%"><div style="width:100%;height:100%;background-size:cover;background-position:center;background-image:url({{ r.photo }})"></div></div></sc-if>
+                  <sc-if value="{{ r.noPhoto }}"><i class="ph {{ r.icon }}"></i></sc-if>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <div style="font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                  <div style="font-size:12px;color:var(--color-neutral-400);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">{{ r.desc }}</div>
+                  <div style="display:flex;gap:10px;font-size:12px;color:var(--color-neutral-500);margin-top:2px"><span>{{ r.compText }}</span><span>{{ r.weightText }}</span></div>
+                </div>
+                <div style="flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                  <span style="font-size:15px;font-weight:500;color:var(--color-accent-300)">{{ r.costText }}</span>
+                  <span style="font-size:11px;color:var(--color-neutral-500)">за шт</span>
+                </div>
+              </button>
+              <button onClick="{{ r.dup }}" style="flex:none;width:84px;border:0;cursor:pointer;font:inherit;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:transparent;color:var(--color-accent-300)"><i class="ph ph-copy" style="font-size:22px"></i>Дублювати</button>
+              <button onClick="{{ r.del }}" style="flex:none;width:84px;scroll-snap-align:end;border:0;cursor:pointer;font:inherit;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:transparent;color:var(--color-neutral-300)"><i class="ph ph-trash" style="font-size:22px"></i>Видалити</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:16px 16px 34px;background:linear-gradient(to top,var(--color-bg) 60%,transparent)">
+        <button class="btn btn-primary" onClick="{{ newRecipe }}" style="width:100%;min-height:50px;font-size:15px;background:var(--color-bg)"><i class="ph ph-plus" style="font-size:18px"></i>Новий рецепт</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRecipe }}" hint-placeholder-val="{{ false }}">
+      <div style="height:48px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px">
+        <button class="btn btn-ghost" onClick="{{ backToList }}" style="min-height:44px;padding:0 10px;font-size:15px"><i class="ph ph-caret-left" style="font-size:18px"></i>Рецепти</button>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:12px;color:var(--color-neutral-500);display:flex;align-items:center;gap:4px"><i class="ph {{ saveIcon }}"></i>{{ saveText }}</span>
+          <button class="btn btn-icon btn-secondary" onClick="{{ delCurrent }}" style="width:44px;height:44px;border:0;color:var(--color-neutral-300)"><i class="ph ph-trash" style="font-size:20px"></i></button>
+        </div>
+      </div>
+      <div class="noscroll" style="flex:1;overflow-y:auto;padding:0 16px 130px;scrollbar-width:none">
+        <div style="display:flex;gap:12px;align-items:center">
+          <label style="position:relative;width:88px;height:88px;flex:none;border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;display:grid;place-items:center;background:radial-gradient(ellipse at 30% 30%,var(--color-accent-800),var(--color-neutral-900) 75%);box-shadow:var(--shadow-sm)">
+            <input type="file" accept="image/png,image/jpeg" onChange="{{ onRecipePhoto }}" style="display:none">
+            <sc-if value="{{ rHasPhoto }}"><div class="lighten" style="position:absolute;inset:0"><div style="width:100%;height:100%;background-size:cover;background-position:center;background-image:url({{ rPhoto }})"></div></div></sc-if>
+            <sc-if value="{{ rNoPhoto }}"><i class="ph {{ lineIcon }}" style="font-size:32px;color:var(--color-accent-400)"></i></sc-if>
+            <span style="position:absolute;right:6px;bottom:6px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--color-bg) 70%,transparent);font-size:14px"><i class="ph ph-camera"></i></span>
+          </label>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+            <sc-if value="{{ editingTitle }}">
+              <input class="input" autoFocus="{{ true }}" value="{{ rName }}" onChange="{{ onTitle }}" onBlur="{{ endTitle }}" onKeyDown="{{ titleKey }}" style="font-size:21px;font-weight:500;min-height:40px;padding:2px 8px">
+            </sc-if>
+            <sc-if value="{{ notEditingTitle }}">
+              <button onClick="{{ startTitle }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;padding:0;cursor:text;font:inherit;color:inherit;text-align:left">
+                <span style="font-size:22px;font-weight:500;line-height:1.15;letter-spacing:-.015em">{{ rName }}</span>
+                <i class="ph ph-pencil-simple" style="font-size:15px;color:var(--color-neutral-500);flex:none"></i>
+              </button>
+            </sc-if>
+            <div style="display:flex;gap:6px">
+              <div onClick="{{ editWeight }}" style="flex:1;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius-md);background:var(--color-surface);cursor:text;min-height:36px;box-shadow:{{ weightShadow }}">
+                <i class="ph ph-scales" style="color:var(--color-neutral-400)"></i>
+                <sc-if value="{{ editingWeight }}"><input type="number" autoFocus="{{ true }}" value="{{ rWeight }}" onChange="{{ onWeight }}" onBlur="{{ endMetric }}" style="width:100%;min-width:0;background:none;border:0;outline:0;color:var(--color-text);font:inherit;font-size:14px;font-weight:500"></sc-if>
+                <sc-if value="{{ notEditingWeight }}"><span style="font-size:14px;font-weight:500">{{ rWeight }} {{ capUnit }}</span></sc-if>
+              </div>
+              <div onClick="{{ editTime }}" style="flex:1;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius-md);background:var(--color-surface);cursor:text;min-height:36px;box-shadow:{{ timeShadow }}">
+                <i class="ph ph-timer" style="color:var(--color-neutral-400)"></i>
+                <sc-if value="{{ editingTime }}"><input type="number" autoFocus="{{ true }}" value="{{ rTime }}" onChange="{{ onTime }}" onBlur="{{ endMetric }}" style="width:100%;min-width:0;background:none;border:0;outline:0;color:var(--color-text);font:inherit;font-size:14px;font-weight:500"></sc-if>
+                <sc-if value="{{ notEditingTime }}"><span style="font-size:14px;font-weight:500">{{ rTime }} хв</span></sc-if>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <textarea class="input" value="{{ rDesc }}" onChange="{{ onDesc }}" placeholder="Опис рецепта…" style="margin-top:12px;min-height:56px;font-size:14px;line-height:1.5;color:var(--color-neutral-300);background:transparent;border-color:transparent;box-shadow:inset 0 0 0 1px var(--color-neutral-800)"></textarea>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px">
+          <h4 style="margin:0;font-size:20px">Склад</h4>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-neutral-400)">
+            <span>{{ reqText }}</span>
+            <div style="display:flex;gap:3px">
+              <sc-for list="{{ reqDots }}" as="d" hint-placeholder-count="5"><span style="width:14px;height:4px;border-radius:2px;background:{{ d.bg }}"></span></sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ mainSlots }}" as="s" hint-placeholder-count="5">
+            <div style="border-radius:var(--radius-lg);background:{{ s.bg }};border:{{ s.border }};overflow:hidden">
+              <sc-if value="{{ s.empty }}">
+                <button onClick="{{ s.open }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:56px;border:0;background:none;cursor:pointer;font:inherit;color:inherit;text-align:left">
+                  <span style="width:36px;height:36px;flex:none;border-radius:var(--radius-md);display:grid;place-items:center;background:var(--color-neutral-900);color:var(--color-neutral-500);font-size:18px"><i class="ph {{ s.icon }}"></i></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <span style="font-size:15px;font-weight:500">{{ s.label }}</span>
+                    <span style="font-size:12px;color:{{ s.statusColor }}">{{ s.status }}</span>
+                  </span>
+                  <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--color-accent-300)">Обрати<i class="ph ph-caret-right" style="font-size:16px"></i></span>
+                </button>
+              </sc-if>
+              <sc-for list="{{ s.items }}" as="it" hint-placeholder-count="0">
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;box-shadow:{{ it.divider }}">
+                  <button onClick="{{ s.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left">
+                    <div style="width:40px;height:40px;flex:none;border-radius:var(--radius-sm);overflow:hidden;display:grid;place-items:center;background:var(--color-neutral-900);color:var(--color-accent-400);font-size:18px">
+                      <sc-if value="{{ it.hasPhoto }}"><div class="lighten" style="width:100%;height:100%"><div style="width:100%;height:100%;background-size:cover;background-position:center;background-image:url({{ it.photo }})"></div></div></sc-if>
+                      <sc-if value="{{ it.noPhoto }}"><i class="ph {{ s.icon }}"></i></sc-if>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:14px;font-weight:500;line-height:1.25">{{ it.name }}</div>
+                      <div style="font-size:11px;color:var(--color-neutral-500);display:flex;align-items:center;gap:4px">{{ it.caption }}<sc-if value="{{ s.single }}"><i class="ph ph-arrows-clockwise" style="font-size:12px;color:var(--color-accent-300)"></i></sc-if></div>
+                    </div>
+                  </button>
+                  <sc-if value="{{ it.fixed }}"><span style="font-size:13px;color:var(--color-neutral-400)">{{ it.fixedText }}</span></sc-if>
+                  <sc-if value="{{ it.adjustable }}">
+                    <div style="display:flex;align-items:center;height:36px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-neutral-700)">
+                      <button onClick="{{ it.minus }}" style="width:28px;height:36px;border:0;background:none;color:var(--color-accent);cursor:pointer;font-size:14px;display:grid;place-items:center"><i class="ph ph-minus"></i></button>
+                      <input type="number" value="{{ it.amount }}" onChange="{{ it.onAmt }}" style="width:48px;padding:0;text-align:center;background:none;border:0;outline:0;color:var(--color-text);font:inherit;font-size:14px;font-weight:500">
+                      <span style="font-size:11px;color:var(--color-neutral-400)">{{ it.unit }}</span>
+                      <button onClick="{{ it.plus }}" style="width:28px;height:36px;border:0;background:none;color:var(--color-accent);cursor:pointer;font-size:14px;display:grid;place-items:center"><i class="ph ph-plus"></i></button>
+                    </div>
+                  </sc-if>
+                  <button onClick="{{ it.remove }}" aria-label="Прибрати" style="width:32px;height:40px;flex:none;border:0;background:none;color:var(--color-neutral-500);cursor:pointer;font-size:16px;display:grid;place-items:center;margin-right:-6px"><i class="ph ph-x"></i></button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ s.canAddMore }}">
+                <button onClick="{{ s.open }}" style="width:100%;display:flex;align-items:center;gap:6px;padding:0 12px;min-height:40px;border:0;background:none;cursor:pointer;font:inherit;font-size:13px;color:var(--color-accent-300);box-shadow:inset 0 1px 0 var(--color-neutral-800)"><i class="ph ph-plus" style="font-size:14px"></i>{{ s.addMoreLabel }}</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ hasExtra }}">
+          <div style="margin-top:16px;font-size:12px;color:var(--color-neutral-500)">Додати за бажанням</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+            <sc-for list="{{ extraSlots }}" as="s" hint-placeholder-count="3">
+              <button onClick="{{ s.open }}" style="display:flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:999px;border:1px dashed var(--color-neutral-700);background:none;cursor:pointer;font:inherit;font-size:13px;color:{{ s.chipColor }}"><i class="ph ph-plus" style="font-size:14px;color:var(--color-accent)"></i>{{ s.label }}<sc-if value="{{ s.conflict }}"><i class="ph ph-arrows-left-right" style="font-size:13px;color:var(--color-neutral-500)"></i></sc-if></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;display:flex;align-items:center;gap:12px;background:var(--color-surface);box-shadow:0 -1px 0 var(--color-neutral-800)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--color-neutral-400)">Собівартість · 1 шт</div>
+          <div style="font-size:22px;font-weight:500;color:var(--color-accent-200)">{{ costText }}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div style="display:flex;align-items:center;height:40px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent-700)">
+            <button onClick="{{ batchMinus }}" style="width:40px;height:40px;border:0;background:none;color:var(--color-accent);cursor:pointer;font-size:16px;display:grid;place-items:center"><i class="ph ph-minus"></i></button>
+            <input type="number" value="{{ batch }}" onChange="{{ onBatch }}" style="width:36px;text-align:center;background:none;border:0;outline:0;color:var(--color-text);font:inherit;font-size:15px;font-weight:500">
+            <span style="font-size:12px;color:var(--color-neutral-400)">шт</span>
+            <button onClick="{{ batchPlus }}" style="width:40px;height:40px;border:0;background:none;color:var(--color-accent);cursor:pointer;font-size:16px;display:grid;place-items:center"><i class="ph ph-plus"></i></button>
+          </div>
+          <div style="font-size:12px;color:var(--color-neutral-400)">Партія: <span style="color:var(--color-text)">{{ batchText }}</span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;top:52px;left:12px;right:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:30">
+      <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+        <div style="align-self:flex-end;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius-md);background:var(--color-surface);box-shadow:var(--shadow-md);font-size:13px;animation:toastIn .2s ease-out">
+          <i class="ph {{ t.icon }}" style="font-size:16px;color:{{ t.color }}"></i>{{ t.text }}
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ pickOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closePick }}" style="position:absolute;inset:0;z-index:20;background:color-mix(in srgb,var(--color-neutral-900) 60%,transparent);display:flex;align-items:flex-end">
+        <div onClick="{{ stopProp }}" style="width:100%;height:calc(100% - 56px);display:flex;flex-direction:column;border-radius:24px 24px 0 0;background:var(--color-surface);box-shadow:var(--shadow-lg);animation:sheetUp .22s ease-out">
+          <div style="flex:none;padding:10px 16px 8px;display:flex;flex-direction:column;gap:10px">
+            <div style="width:36px;height:4px;border-radius:2px;background:var(--color-neutral-700);align-self:center"></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <i class="ph {{ pickIcon }}" style="font-size:22px;color:var(--color-accent)"></i>
+              <div class="dialog-title" style="flex:1">{{ pickTitle }}</div>
+              <button class="btn btn-ghost" onClick="{{ closePick }}" style="min-height:40px;padding:0 10px">Готово</button>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--color-neutral-400)"><i class="ph ph-info" style="font-size:14px;color:var(--color-accent);margin-top:1px"></i><span style="text-wrap:pretty">{{ pickHint }}</span></div>
+          </div>
+          <div class="noscroll" style="flex:1;overflow-y:auto;padding:4px 16px 34px;scrollbar-width:none;display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ pickRows }}" as="p" hint-placeholder-count="4">
+              <div onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:12px;padding:8px;border-radius:var(--radius-md);cursor:pointer;background:{{ p.bg }};box-shadow:{{ p.ring }}">
+                <div style="width:48px;height:48px;flex:none;border-radius:var(--radius-sm);overflow:hidden;display:grid;place-items:center;background:var(--color-neutral-900);color:var(--color-accent-400);font-size:20px">
+                  <sc-if value="{{ p.hasPhoto }}"><div class="lighten" style="width:100%;height:100%"><div style="width:100%;height:100%;background-size:cover;background-position:center;background-image:url({{ p.photo }})"></div></div></sc-if>
+                  <sc-if value="{{ p.noPhoto }}"><i class="ph {{ pickIcon }}"></i></sc-if>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:14px;font-weight:500;line-height:1.25">{{ p.name }}</div>
+                  <div style="font-size:12px;color:var(--color-neutral-500)">{{ p.priceText }}</div>
+                </div>
+                <button onClick="{{ p.edit }}" aria-label="Редагувати" style="width:36px;height:44px;border:0;background:none;color:var(--color-neutral-500);cursor:pointer;font-size:16px;display:grid;place-items:center"><i class="ph ph-pencil-simple"></i></button>
+                <span style="width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:14px;background:{{ p.checkBg }};color:var(--color-bg);box-shadow:{{ p.checkRing }}"><sc-if value="{{ p.selected }}"><i class="ph ph-check"></i></sc-if></span>
+              </div>
+            </sc-for>
+            <button onClick="{{ pickAdd }}" style="display:flex;align-items:center;gap:12px;padding:8px;min-height:64px;border-radius:var(--radius-md);border:1px dashed var(--color-neutral-700);background:none;cursor:pointer;font:inherit;font-size:14px;color:var(--color-neutral-300)"><span style="width:48px;height:48px;display:grid;place-items:center;font-size:20px;color:var(--color-accent)"><i class="ph ph-plus"></i></span>{{ pickAddLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeFilter }}" style="position:absolute;inset:0;z-index:20;background:color-mix(in srgb,var(--color-neutral-900) 60%,transparent);display:flex;align-items:flex-end">
+        <div onClick="{{ stopProp }}" style="width:100%;max-height:78%;display:flex;flex-direction:column;border-radius:24px 24px 0 0;background:var(--color-surface);box-shadow:var(--shadow-lg);animation:sheetUp .22s ease-out">
+          <div style="flex:none;padding:10px 16px 8px;display:flex;flex-direction:column;gap:10px">
+            <div style="width:36px;height:4px;border-radius:2px;background:var(--color-neutral-700);align-self:center"></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="dialog-title" style="flex:1">Рецепти з інгредієнтом</div>
+              <sc-if value="{{ hasFilter }}"><button class="btn btn-ghost" onClick="{{ clearFilter }}" style="min-height:40px;padding:0 10px">Скинути</button></sc-if>
+            </div>
+          </div>
+          <div class="noscroll" style="flex:1;overflow-y:auto;padding:4px 16px 34px;scrollbar-width:none;display:flex;flex-direction:column;gap:4px">
+            <sc-for list="{{ filterRows }}" as="f" hint-placeholder-count="5">
+              <button onClick="{{ f.pick }}" style="display:flex;align-items:center;gap:12px;padding:8px 10px;min-height:48px;border-radius:var(--radius-md);border:0;cursor:pointer;font:inherit;color:inherit;text-align:left;background:{{ f.bg }};box-shadow:{{ f.ring }}">
+                <i class="ph {{ f.icon }}" style="font-size:18px;color:var(--color-accent-400)"></i>
+                <span style="flex:1;min-width:0;font-size:14px">{{ f.name }}</span>
+                <span style="font-size:12px;color:var(--color-neutral-500)">{{ f.usedText }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:25;background:color-mix(in srgb,var(--color-neutral-900) 60%,transparent);display:flex;align-items:flex-end">
+        <div onClick="{{ stopProp }}" class="noscroll" style="width:100%;max-height:90%;overflow-y:auto;scrollbar-width:none;padding:10px 16px 34px;border-radius:24px 24px 0 0;background:var(--color-surface);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:14px;animation:sheetUp .22s ease-out">
+          <div style="width:36px;height:4px;border-radius:2px;background:var(--color-neutral-700);align-self:center"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="dialog-title">{{ sheetTitle }}</div>
+            <sc-if value="{{ isEdit }}"><button class="btn btn-icon" onClick="{{ delIng }}" style="width:44px;height:44px;color:var(--color-neutral-300)"><i class="ph ph-trash" style="font-size:20px"></i></button></sc-if>
+          </div>
+          <div style="display:flex;gap:12px;align-items:stretch">
+            <label style="width:96px;height:96px;flex:none;position:relative;border-radius:var(--radius-md);overflow:hidden;cursor:pointer;display:grid;place-items:center;background:radial-gradient(ellipse at 35% 30%,var(--color-accent-900),var(--color-neutral-900) 80%);color:var(--color-accent-400);box-shadow:var(--shadow-sm)">
+              <input type="file" accept="image/png,image/jpeg" onChange="{{ onFormPhoto }}" style="display:none">
+              <sc-if value="{{ fHasPhoto }}"><div class="lighten" style="position:absolute;inset:0"><div style="width:100%;height:100%;background-size:cover;background-position:center;background-image:url({{ fPhoto }})"></div></div></sc-if>
+              <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--color-neutral-200)"><i class="ph ph-camera" style="font-size:22px"></i>Фото</div>
+            </label>
+            <div class="field" style="flex:1;display:flex;flex-direction:column;justify-content:center">
+              <label>Назва</label>
+              <input class="input" value="{{ fName }}" onChange="{{ onFName }}" placeholder="Напр. Лаванда французька" style="min-height:44px">
+            </div>
+          </div>
+          <sc-if value="{{ hasUnits }}">
+            <div class="field">
+              <label>Одиниця виміру</label>
+              <div class="seg" style="display:flex">
+                <sc-for list="{{ unitOpts }}" as="u" hint-placeholder-count="2">
+                  <button onClick="{{ u.onClick }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:0;cursor:pointer;font:inherit;font-size:14px;background:{{ u.bg }};color:{{ u.color }};box-shadow:{{ u.shadow }}"><i class="ph {{ u.icon }}" style="font-size:18px"></i>{{ u.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <div class="field">
+            <label>{{ portionLabel }}</label>
+            <div style="position:relative">
+              <input class="input" type="number" value="{{ fTypical }}" onChange="{{ onFTypical }}" placeholder="0" style="min-height:44px;padding-right:48px">
+              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--color-neutral-400)">{{ portionUnit }}</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Покупка</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="position:relative;flex:1">
+                <input class="input" type="number" value="{{ fBuyQty }}" onChange="{{ onFBuyQty }}" placeholder="0" style="min-height:44px;padding-right:40px">
+                <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--color-neutral-400)">{{ buyUnit }}</span>
+              </div>
+              <span style="color:var(--color-neutral-500)">×</span>
+              <div style="position:relative;flex:1">
+                <input class="input" type="number" value="{{ fBuyPrice }}" onChange="{{ onFBuyPrice }}" placeholder="0" style="min-height:44px;padding-right:40px">
+                <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--color-neutral-400)">грн</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-accent-900);font-size:13px;color:var(--color-accent-200)">
+            <i class="ph ph-lightbulb" style="font-size:16px;color:var(--color-accent)"></i><span>{{ hintText }}</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-secondary" onClick="{{ closeSheet }}" style="flex:1;min-height:48px;font-size:15px">Скасувати</button>
+            <button class="btn btn-primary" disabled="{{ submitDisabled }}" onClick="{{ submitIng }}" style="flex:1;min-height:48px;font-size:15px">{{ submitLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--color-neutral-300);z-index:40;pointer-events:none"></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;recipe&quot;,&quot;new&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list'|'recipe'|'new'&quot;},&quot;showLineCost&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  CATS = {
+    soap: [
+      { key: 'mold', label: 'Форма', icon: 'ph-shapes', units: ['шт'], single: true, capacity: true },
+      { key: 'base', label: 'Основа', icon: 'ph-cube', units: ['г'], single: true },
+      { key: 'pigment', label: 'Колір', icon: 'ph-palette', units: ['крап', 'г'] },
+      { key: 'extract', label: 'Екстракт', icon: 'ph-test-tube', units: ['мл', 'крап'] },
+      { key: 'fragrance', label: 'Запашка', icon: 'ph-drop', units: ['крап'] },
+      { key: 'essential', label: 'Ефірне масло', icon: 'ph-leaf', units: ['крап'] },
+      { key: 'other', label: 'Пакування', icon: 'ph-package', units: ['шт'] },
+      { key: 'tools', label: 'Інструменти', icon: 'ph-wrench', units: ['шт'] },
+    ],
+    perfume: [
+      { key: 'bottle', label: 'Флакон', icon: 'ph-flask', units: ['шт'], single: true, capacity: true },
+      { key: 'pbase', label: 'Основа', icon: 'ph-drop-half', units: ['мл'], single: true },
+      { key: 'fragrance', label: 'Запашка', icon: 'ph-drop', units: ['крап'] },
+    ],
+  };
+  REQ = { soap: ['mold', 'base', 'pigment', 'extract', 'other'], perfume: ['bottle', 'pbase', 'fragrance'] };
+  BASE = { soap: 'base', perfume: 'pbase' };
+  CAPU = { soap: 'г', perfume: 'мл' };
+  UICON = { 'крап': 'ph-drop', 'г': 'ph-scales', 'мл': 'ph-beaker', 'шт': 'ph-hash' };
+  HINTS = {
+    mold: 'Одна форма. Основа й вага рецепта підлаштуються під її об’єм.', bottle: 'Один флакон. Основа підлаштується під його об’єм.',
+    base: 'Кількість = об’єм обраної форми.', pbase: 'Кількість = об’єм обраного флакона.',
+    essential: 'Не поєднуються з запашками — вибір прибере їх.', fragrance: 'Можна кілька. Не поєднуються з ефірними маслами.',
+    pigment: 'Можна кілька відтінків.', extract: 'Можна кілька.', other: 'Коробка, етикетка, стрічка…', tools: 'Витратні інструменти на одну штуку.',
+  };
+
+  state = this.initState();
+
+  initState() {
+    const I = (id, line, cat, name, unit, typical, buyQty, buyPrice, capacity) => ({ id, line, cat, name, unit, typical, buyQty, buyPrice, capacity, photo: null });
+    const ingredients = [
+      I('m1', 'soap', 'mold', 'Лаванда еліт-форма', 'шт', 1, 1, 18, 100),
+      I('m2', 'soap', 'mold', 'Прямокутна класична', 'шт', 1, 1, 12, 120),
+      I('m3', 'soap', 'mold', 'Кругла мандала', 'шт', 1, 1, 15, 90),
+      I('b1', 'soap', 'base', 'Crystal Donkey Milk біла', 'г', 100, 1000, 420),
+      I('b2', 'soap', 'base', 'Прозора гліцеринова', 'г', 100, 1000, 360),
+      I('b3', 'soap', 'base', 'Козяче молоко', 'г', 100, 1000, 480),
+      I('f1', 'soap', 'fragrance', 'Лаванда і ваніль', 'крап', 15, 10, 150),
+      I('f2', 'soap', 'fragrance', 'Біла кава', 'крап', 15, 10, 130),
+      I('p1', 'soap', 'pigment', 'Перламутровий фіолетовий', 'крап', 3, 10, 90),
+      I('p2', 'soap', 'pigment', 'Мідна слюда', 'г', 1, 10, 60),
+      I('e1', 'soap', 'essential', 'Лаванда французька', 'крап', 12, 10, 210),
+      I('e2', 'soap', 'essential', 'Апельсин солодкий', 'крап', 14, 10, 120),
+      I('e3', 'soap', 'essential', 'Евкаліпт', 'крап', 10, 10, 140),
+      I('x1', 'soap', 'extract', 'Ромашка CO₂', 'мл', 3, 30, 150),
+      I('x2', 'soap', 'extract', 'Алое вера', 'мл', 5, 30, 110),
+      I('t1', 'soap', 'tools', 'Рукавички', 'шт', 1, 100, 250),
+      I('o1', 'soap', 'other', 'Крафт-коробка', 'шт', 1, 50, 400),
+      I('o2', 'soap', 'other', 'Етикетка', 'шт', 1, 100, 250),
+      I('v1', 'perfume', 'bottle', 'Флакон-спрей 30 мл', 'шт', 1, 1, 45, 30),
+      I('v2', 'perfume', 'bottle', 'Роллер 10 мл', 'шт', 1, 1, 22, 10),
+      I('pb1', 'perfume', 'pbase', 'Парфумерний спирт', 'мл', 30, 500, 380),
+      I('pb2', 'perfume', 'pbase', 'Олія жожоба', 'мл', 10, 100, 260),
+      I('pf1', 'perfume', 'fragrance', 'Жасмин самбак', 'крап', 40, 10, 190),
+      I('pf2', 'perfume', 'fragrance', 'Бергамот', 'крап', 12, 10, 140),
+      I('pf3', 'perfume', 'fragrance', 'Кедр атласький', 'крап', 8, 10, 160),
+      I('pf4', 'perfume', 'fragrance', 'Білий мускус', 'крап', 15, 10, 200),
+    ];
+    const R = (id, line, name, desc, weight, time, items) => ({ id, line, name, desc, weight, time, items, photo: null, batch: 1 });
+    const recipes = [
+      R('r1', 'soap', 'Лавандове мило', 'Ніжне мило на молоці з французькою лавандою та перламутровим відблиском.', 100, 40, { m1: 1, b1: 100, e1: 12, p1: 3, o1: 1 }),
+      R('r2', 'soap', 'Кавовий брусок-скраб', 'Скрабуюче мило з меленою кавою — для рук після кухні.', 120, 35, { m2: 1, b2: 120, f2: 15, o2: 1 }),
+      R('r3', 'soap', 'Цитрусовий ранок', 'Прозоре мило з апельсином і мідними іскрами.', 90, 30, { m3: 1, b2: 90, e2: 14, p2: 1 }),
+      R('r4', 'soap', 'Ромашка для малюків', 'Без запашки, на козячому молоці з екстрактом ромашки.', 120, 45, { m2: 1, b3: 120, x1: 3, o1: 1 }),
+      R('r5', 'perfume', 'Нічний жасмин', 'Густий квітковий шлейф з мускусом.', 30, 20, { v1: 1, pb1: 30, pf1: 40, pf4: 15 }),
+      R('r6', 'perfume', 'Бергамот і кедр', 'Свіжий деревний роллер на жожобі.', 10, 15, { v2: 1, pb2: 10, pf2: 12, pf3: 8 }),
+    ];
+    return {
+      ingredients, recipes, line: 'soap', screen: 'list', currentId: { soap: 'r1', perfume: 'r5' },
+      query: '', sort: 'name', filterIng: null, filterOpen: false,
+      editing: null, dirty: false, slot: null, sheet: null, toasts: [],
+    };
+  }
+
+  componentDidMount() {
+    const s = this.props.startScreen;
+    if (s === 'recipe') this.setState({ screen: 'recipe' });
+    if (s === 'new') this.createRecipe(false);
+  }
+
+  fmt(n) { return Number(n || 0).toLocaleString('uk-UA', { maximumFractionDigits: n < 10 ? 2 : 0 }); }
+  unitPrice(i) { return i.unit === 'крап' ? i.buyPrice / (i.buyQty * 20) : i.buyPrice / i.buyQty; }
+  buyUnitOf(u) { return u === 'крап' ? 'мл' : u; }
+  cats(line) { return this.CATS[line || this.state.line]; }
+  catDef(line, key) { return this.CATS[line].find(c => c.key === key); }
+  ing(id) { return this.state.ingredients.find(i => i.id === id); }
+  cost(r) { return Object.entries(r.items).reduce((s, [id, a]) => { const i = this.ing(id); return i ? s + this.unitPrice(i) * a : s; }, 0); }
+  current() { return this.state.recipes.find(r => r.id === this.state.currentId[this.state.line]); }
+
+  toast(text, kind) {
+    const map = { ok: ['ph-check-circle', 'var(--color-accent)'], del: ['ph-trash', 'oklch(0.82 0.11 80)'], info: ['ph-info', 'var(--color-accent-300)'] };
+    const id = Math.random().toString(36).slice(2);
+    const [icon, color] = map[kind || 'ok'];
+    this.setState(s => ({ toasts: [...s.toasts, { id, text, icon, color }] }));
+    setTimeout(() => this.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), 2200);
+  }
+  updateRecipe(fn) {
+    const id = this.state.currentId[this.state.line];
+    this.setState(s => ({ dirty: true, recipes: s.recipes.map(r => r.id === id ? { ...r, ...fn(r) } : r) }));
+  }
+  saveIfDirty() { if (this.state.dirty) { this.setState({ dirty: false }); this.toast('Рецепт оновлено'); } }
+
+  lev(a, b) {
+    const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+  fuzzy(q, text) {
+    q = q.trim().toLowerCase(); if (!q) return true;
+    text = text.toLowerCase(); if (text.includes(q)) return true;
+    const tol = q.length >= 6 ? 2 : q.length >= 3 ? 1 : 0;
+    return text.split(/[^a-zа-яіїєґ0-9']+/i).some(w => w && (this.lev(q, w.slice(0, q.length + 1)) <= tol || this.lev(q, w.slice(0, q.length)) <= tol));
+  }
+
+  toggleIng(ing) {
+    const line = this.state.line, cat = this.catDef(line, ing.cat);
+    const r = this.current(); const items = { ...r.items };
+    if (items[ing.id] != null) { delete items[ing.id]; this.updateRecipe(() => ({ items })); return; }
+    const inCat = k => Object.keys(items).filter(id => this.ing(id)?.cat === k);
+    if (cat.single) inCat(cat.key).forEach(id => delete items[id]);
+    if (line === 'soap' && (cat.key === 'essential' || cat.key === 'fragrance')) {
+      const other = cat.key === 'essential' ? 'fragrance' : 'essential';
+      const rm = inCat(other);
+      if (rm.length) { rm.forEach(id => delete items[id]); this.toast(cat.key === 'essential' ? 'Запашки прибрано' : 'Ефірні масла прибрано', 'info'); }
+    }
+    const baseKey = this.BASE[line], patch = { items };
+    if (cat.capacity) {
+      items[ing.id] = 1; patch.weight = ing.capacity;
+      inCat(baseKey).forEach(id => { items[id] = ing.capacity; });
+    } else if (cat.key === baseKey) {
+      const mold = Object.keys(items).map(id => this.ing(id)).find(i => i && this.catDef(line, i.cat)?.capacity);
+      items[ing.id] = mold ? mold.capacity : ing.typical;
+    } else items[ing.id] = ing.typical;
+    this.updateRecipe(() => patch);
+    if (cat.single) setTimeout(() => this.setState({ slot: null }), 180);
+  }
+  setAmt(id, v) { this.updateRecipe(rr => ({ items: { ...rr.items, [id]: Math.max(0, v) } })); }
+  removeItem(id) { this.updateRecipe(rr => { const items = { ...rr.items }; delete items[id]; return { items }; }); }
+  step(u) { return u === 'г' || u === 'мл' ? 5 : 1; }
+  setBatch(v) { this.updateRecipe(() => ({ batch: Math.max(1, Math.round(v) || 1) })); }
+
+  createRecipe(withToast) {
+    const id = 'r' + Date.now(), line = this.state.line;
+    this.setState(s => ({ recipes: [...s.recipes, { id, line, name: 'Новий рецепт', desc: '', weight: 0, time: 0, items: {}, photo: null, batch: 1 }], currentId: { ...s.currentId, [line]: id }, screen: 'recipe', editing: 'title', dirty: false }));
+    if (withToast) this.toast('Рецепт створено');
+  }
+
+  openSheet(cat, ing) {
+    const c = this.catDef(this.state.line, cat);
+    const form = ing
+      ? { name: ing.name, unit: ing.unit, typical: c.capacity ? ing.capacity : ing.typical, buyQty: ing.buyQty, buyPrice: ing.buyPrice, photo: ing.photo }
+      : { name: '', unit: c.units[0], typical: '', buyQty: '', buyPrice: '', photo: null };
+    this.setState({ sheet: { cat, id: ing ? ing.id : null, form } });
+  }
+  setForm(patch) { this.setState(s => ({ sheet: { ...s.sheet, form: { ...s.sheet.form, ...patch } } })); }
+  readPhoto(e, cb) {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = () => cb(rd.result); rd.readAsDataURL(f);
+  }
+  submitIng() {
+    const { sheet, line } = this.state, f = sheet.form, c = this.catDef(line, sheet.cat);
+    const data = { name: f.name.trim(), unit: f.unit, buyQty: +f.buyQty, buyPrice: +f.buyPrice, photo: f.photo, typical: c.capacity ? 1 : +f.typical, capacity: c.capacity ? +f.typical : undefined };
+    if (sheet.id) {
+      this.setState(s => ({ sheet: null, ingredients: s.ingredients.map(i => i.id === sheet.id ? { ...i, ...data } : i) }));
+      this.toast('Інгредієнт оновлено');
+    } else {
+      const id = 'i' + Date.now(), ing = { id, line, cat: sheet.cat, ...data };
+      this.setState(s => ({ sheet: null, ingredients: [...s.ingredients, ing] }), () => { if (this.state.screen === 'recipe') this.toggleIng(ing); });
+      this.toast('Додано в рецепт');
+    }
+  }
+  deleteIng() {
+    const id = this.state.sheet.id;
+    this.setState(s => ({
+      sheet: null, ingredients: s.ingredients.filter(i => i.id !== id),
+      recipes: s.recipes.map(r => { if (r.items[id] == null) return r; const items = { ...r.items }; delete items[id]; return { ...r, items }; }),
+    }));
+    this.toast('Інгредієнт видалено', 'del');
+  }
+  deleteRecipe(id) {
+    this.setState(s => ({ recipes: s.recipes.filter(r => r.id !== id), screen: 'list', dirty: false }));
+    this.toast('Рецепт видалено', 'del');
+  }
+  duplicateRecipe(r) {
+    const id = 'r' + Date.now();
+    this.setState(s => ({ recipes: [...s.recipes, { ...r, id, name: r.name + ' (копія)', items: { ...r.items } }] }));
+    this.toast('Рецепт продубльовано');
+  }
+
+  renderVals() {
+    const st = this.state, line = st.line, cats = this.cats(line);
+    const lineIcon = line === 'soap' ? 'ph-hand-soap' : 'ph-sparkle';
+    const tint = 'color-mix(in srgb, var(--color-accent) 14%, transparent)';
+    const active = (on) => ({ bg: on ? tint : 'transparent', color: on ? 'var(--color-accent-300)' : 'var(--color-neutral-300)', shadow: on ? 'inset 0 0 0 1px var(--color-accent)' : 'none' });
+    const thumb = (p) => ({ hasPhoto: !!p, noPhoto: !p, photo: p || '' });
+    const stopProp = e => e.stopPropagation();
+
+    const lines = [['soap', 'Мило', 'ph-hand-soap'], ['perfume', 'Парфуми', 'ph-sparkle']].map(([k, label, icon]) => ({
+      label, icon, ...active(line === k),
+      onClick: () => { if (k === line) return; this.saveIfDirty(); this.setState({ line: k, screen: 'list', query: '', filterIng: null }); },
+    }));
+
+    const fIng = st.filterIng && this.ing(st.filterIng);
+    const all = st.recipes.filter(r => r.line === line);
+    let shown = all.filter(r => this.fuzzy(st.query, r.name + ' ' + r.desc) && (!fIng || r.items[fIng.id] != null));
+    shown = shown.sort((a, b) => st.sort === 'name' ? a.name.localeCompare(b.name, 'uk') : st.sort === 'asc' ? this.cost(a) - this.cost(b) : this.cost(b) - this.cost(a));
+    const recipeRows = shown.map(r => ({
+      name: r.name, desc: r.desc || 'Без опису', icon: lineIcon, ...thumb(r.photo),
+      costText: this.fmt(this.cost(r)) + ' грн', compText: Object.keys(r.items).length + ' комп.', weightText: (r.weight || 0) + ' ' + this.CAPU[line],
+      open: () => this.setState(s => ({ screen: 'recipe', editing: null, currentId: { ...s.currentId, [line]: r.id } })),
+      dup: (e) => { e.stopPropagation(); this.duplicateRecipe(r); },
+      del: (e) => { e.stopPropagation(); this.deleteRecipe(r.id); },
+    }));
+    const SORTS = { name: ['За назвою', 'ph-sort-ascending', 'asc'], asc: ['Дешевші спершу', 'ph-arrow-up', 'desc'], desc: ['Дорожчі спершу', 'ph-arrow-down', 'name'] };
+    const usedCount = id => all.filter(r => r.items[id] != null).length;
+    const filterRows = st.ingredients.filter(i => i.line === line && usedCount(i.id) > 0)
+      .sort((a, b) => cats.findIndex(c => c.key === a.cat) - cats.findIndex(c => c.key === b.cat))
+      .map(i => { const on = st.filterIng === i.id; return { name: i.name, icon: this.catDef(line, i.cat).icon, usedText: usedCount(i.id) + ' рец.', bg: on ? tint : 'transparent', ring: on ? 'inset 0 0 0 1px var(--color-accent)' : 'none', pick: () => this.setState({ filterIng: i.id, filterOpen: false }) }; });
+
+    const r = this.current() || { name: '', desc: '', weight: 0, time: 0, items: {}, photo: null, batch: 1 };
+    const cost = this.cost(r), batch = r.batch || 1;
+    const compIds = Object.keys(r.items).filter(id => this.ing(id));
+    const hasCat = k => compIds.some(id => this.ing(id).cat === k);
+    const req = this.REQ[line];
+    const slotData = cats.map(c => {
+      const ids = compIds.filter(id => this.ing(id).cat === c.key);
+      const isReq = req.includes(c.key), filled = ids.length > 0;
+      const conflict = line === 'soap' && ((c.key === 'essential' && hasCat('fragrance')) || (c.key === 'fragrance' && hasCat('essential')));
+      const slotCost = ids.reduce((s, id) => s + this.unitPrice(this.ing(id)) * r.items[id], 0);
+      const showCost = this.props.showLineCost ?? true;
+      const items = ids.map((id, k) => {
+        const i = this.ing(id), a = r.items[id], stp = this.step(i.unit);
+        return {
+          name: i.name, ...thumb(i.photo), amount: a, unit: i.unit,
+          caption: c.label + (showCost ? ' · ' + this.fmt(this.unitPrice(i) * a) + ' грн' : ''),
+          divider: k ? 'inset 0 1px 0 var(--color-neutral-800)' : 'none',
+          fixed: !!c.capacity, adjustable: !c.capacity, fixedText: c.capacity ? i.capacity + ' ' + this.CAPU[line] : '',
+          minus: () => this.setAmt(id, a - stp), plus: () => this.setAmt(id, a + stp),
+          onAmt: e => this.setAmt(id, parseFloat(e.target.value) || 0), remove: () => this.removeItem(id),
+        };
+      });
+      return {
+        key: c.key, label: c.label, icon: c.icon, isReq, filled, empty: !filled, items, conflict, single: !!c.single,
+        canAddMore: filled && !c.single, addMoreLabel: 'Ще ' + c.label.toLowerCase(),
+        status: filled ? this.fmt(slotCost) + ' грн' + (ids.length > 1 ? ' · ' + ids.length + ' шт' : '') : isReq ? 'Обов’язково' : 'Не обрано',
+        statusColor: filled ? 'var(--color-neutral-400)' : isReq ? 'var(--color-accent-300)' : 'var(--color-neutral-500)',
+        iconColor: filled ? 'var(--color-accent-300)' : 'var(--color-neutral-500)',
+        bg: filled ? 'var(--color-surface)' : 'transparent',
+        border: filled ? '1px solid transparent' : '1px dashed var(--color-accent-700)',
+        action: filled ? (c.single ? 'Замінити' : '') : 'Обрати', actionIcon: filled ? (c.single ? 'ph-arrows-clockwise' : 'ph-plus') : 'ph-caret-right',
+        chipColor: conflict ? 'var(--color-neutral-500)' : 'var(--color-neutral-300)',
+        open: () => this.setState({ slot: c.key, editing: null }),
+      };
+    });
+    const mainSlots = slotData.filter(s => s.isReq || s.filled);
+    const extraSlots = slotData.filter(s => !s.isReq && !s.filled);
+    const reqDone = slotData.filter(s => s.isReq && s.filled).length;
+
+    let pv = { pickOpen: false };
+    if (st.slot) {
+      const c = this.catDef(line, st.slot);
+      pv = {
+        pickOpen: true, pickTitle: c.label, pickIcon: c.icon, pickHint: this.HINTS[c.key] || '', pickAddLabel: 'Новий: ' + c.label.toLowerCase(),
+        pickRows: st.ingredients.filter(i => i.line === line && i.cat === c.key).map(i => {
+          const sel = r.items[i.id] != null;
+          return {
+            name: i.name, ...thumb(i.photo), selected: sel,
+            priceText: c.capacity ? `${i.capacity} ${this.CAPU[line]} · ${this.fmt(this.unitPrice(i))} грн` : `${this.fmt(this.unitPrice(i))} грн / ${i.unit} · типово ${i.typical} ${i.unit}`,
+            bg: sel ? tint : 'var(--color-bg)', ring: sel ? 'inset 0 0 0 1px var(--color-accent)' : 'none',
+            checkBg: sel ? 'var(--color-accent)' : 'transparent', checkRing: sel ? 'none' : 'inset 0 0 0 1.5px var(--color-neutral-600)',
+            toggle: () => this.toggleIng(i), edit: e => { e.stopPropagation(); this.openSheet(i.cat, i); },
+          };
+        }),
+        pickAdd: () => this.openSheet(c.key, null), closePick: () => this.setState({ slot: null }),
+      };
+    }
+
+    const sh = st.sheet; let sv = { sheetOpen: false };
+    if (sh) {
+      const c = this.catDef(line, sh.cat), f = sh.form;
+      const ok = f.name.trim() && +f.typical > 0 && +f.buyQty > 0 && +f.buyPrice > 0;
+      const pp = +f.buyQty > 0 && +f.buyPrice > 0 ? this.unitPrice({ unit: f.unit, buyQty: +f.buyQty, buyPrice: +f.buyPrice }) : null;
+      sv = {
+        sheetOpen: true, isEdit: !!sh.id, sheetTitle: (sh.id ? 'Редагувати: ' : 'Новий: ') + c.label.toLowerCase(),
+        fName: f.name, fTypical: f.typical, fBuyQty: f.buyQty, fBuyPrice: f.buyPrice, fHasPhoto: !!f.photo, fPhoto: f.photo || '',
+        hasUnits: c.units.length > 1,
+        unitOpts: c.units.map(u => ({ label: u, icon: this.UICON[u], ...active(f.unit === u), onClick: () => this.setForm({ unit: u }) })),
+        portionLabel: c.capacity ? (line === 'soap' ? 'Вага мила (г)' : 'Об’єм флакона (мл)') : 'Типова порція на рецепт',
+        portionUnit: c.capacity ? this.CAPU[line] : f.unit, buyUnit: this.buyUnitOf(f.unit),
+        hintText: pp == null ? 'Вкажіть покупку — порахуємо ціну за одиницю' : `Ціна за ${f.unit}: ${this.fmt(pp)} грн` + (f.unit === 'крап' ? ' · 1 мл = 20 крап' : ''),
+        submitDisabled: !ok, submitLabel: sh.id ? 'Оновити' : 'Додати',
+        onFName: e => this.setForm({ name: e.target.value }), onFTypical: e => this.setForm({ typical: e.target.value }),
+        onFBuyQty: e => this.setForm({ buyQty: e.target.value }), onFBuyPrice: e => this.setForm({ buyPrice: e.target.value }),
+        onFormPhoto: e => this.readPhoto(e, p => this.setForm({ photo: p })),
+        closeSheet: () => this.setState({ sheet: null }), submitIng: () => this.submitIng(), delIng: () => this.deleteIng(),
+      };
+    }
+
+    const ed = st.editing, tw = r.weight * batch;
+    return {
+      isList: st.screen === 'list', isRecipe: st.screen === 'recipe',
+      lines, lineIcon, query: st.query, onQuery: e => this.setState({ query: e.target.value }),
+      recipeRows, noResults: shown.length === 0,
+      sortLabel: SORTS[st.sort][0], sortIcon: SORTS[st.sort][1], cycleSort: () => this.setState({ sort: SORTS[st.sort][2] }),
+      hasFilter: !!fIng, filterLabel: fIng ? fIng.name : 'Інгредієнт',
+      filterBg: fIng ? tint : 'var(--color-surface)', filterColor: fIng ? 'var(--color-accent-200)' : 'var(--color-neutral-300)',
+      filterShadow: fIng ? 'inset 0 0 0 1px var(--color-accent)' : 'inset 0 0 0 1px var(--color-neutral-800)',
+      openFilter: () => this.setState({ filterOpen: true }), closeFilter: () => this.setState({ filterOpen: false }),
+      clearFilter: e => { e.stopPropagation(); this.setState({ filterIng: null, filterOpen: false }); },
+      filterOpen: st.filterOpen, filterRows,
+      newRecipe: () => this.createRecipe(true),
+      backToList: () => { this.saveIfDirty(); this.setState({ screen: 'list', editing: null }); },
+      delCurrent: () => this.deleteRecipe(r.id),
+      saveIcon: st.dirty ? 'ph-cloud-arrow-up' : 'ph-cloud-check', saveText: st.dirty ? 'Збережеться' : 'Збережено',
+      rName: r.name, rDesc: r.desc, rWeight: r.weight, rTime: r.time, capUnit: this.CAPU[line],
+      rHasPhoto: !!r.photo, rNoPhoto: !r.photo, rPhoto: r.photo || '',
+      onRecipePhoto: e => this.readPhoto(e, p => this.updateRecipe(() => ({ photo: p }))),
+      editingTitle: ed === 'title', notEditingTitle: ed !== 'title',
+      startTitle: () => this.setState({ editing: 'title' }), endTitle: () => this.setState({ editing: null }),
+      titleKey: e => { if (e.key === 'Enter') this.setState({ editing: null }); },
+      onTitle: e => this.updateRecipe(() => ({ name: e.target.value })),
+      editingWeight: ed === 'weight', notEditingWeight: ed !== 'weight', editingTime: ed === 'time', notEditingTime: ed !== 'time',
+      weightShadow: ed === 'weight' ? 'inset 0 0 0 1px var(--color-accent)' : 'none', timeShadow: ed === 'time' ? 'inset 0 0 0 1px var(--color-accent)' : 'none',
+      editWeight: () => this.setState({ editing: 'weight' }), editTime: () => this.setState({ editing: 'time' }), endMetric: () => this.setState({ editing: null }),
+      onWeight: e => this.updateRecipe(() => ({ weight: parseFloat(e.target.value) || 0 })),
+      onTime: e => this.updateRecipe(() => ({ time: parseFloat(e.target.value) || 0 })),
+      onDesc: e => this.updateRecipe(() => ({ desc: e.target.value })),
+      reqText: reqDone === req.length ? 'Усе обов’язкове є' : `Обов’язкові ${reqDone}/${req.length}`,
+      reqDots: slotData.filter(s => s.isReq).map(s => ({ bg: s.filled ? 'var(--color-accent)' : 'var(--color-neutral-700)' })),
+      mainSlots, extraSlots, hasExtra: extraSlots.length > 0,
+      showLineCost: this.props.showLineCost ?? true,
+      costText: this.fmt(cost) + ' грн', batch,
+      batchText: this.fmt(cost * batch) + ' грн · ' + (tw >= 1000 ? this.fmt(tw / 1000) + ' ' + (line === 'soap' ? 'кг' : 'л') : tw + ' ' + this.CAPU[line]),
+      batchMinus: () => this.setBatch(batch - 1), batchPlus: () => this.setBatch(batch + 1), onBatch: e => this.setBatch(parseFloat(e.target.value)),
+      toasts: st.toasts, stopProp, ...pv, ...sv,
+    };
+  }
+}
+</script>
+</body>
+</html>

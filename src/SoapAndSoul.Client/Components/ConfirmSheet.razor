@@ -1,0 +1,26 @@
+<Sheet Variant="form" Class="confirm" Top="true" Label="@Title" OnClose="OnCancel">
+    <div class="grabber"></div>
+    <div class="dialog-title">@Title</div>
+    <p>@Message</p>
+    <div class="form-actions">
+        <button type="button" class="btn btn-secondary" @onclick="OnCancel">Скасувати</button>
+        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAsync"><i class="ph ph-trash"></i>@ConfirmLabel</button>
+    </div>
+</Sheet>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ConfirmLabel { get; set; } = "Видалити";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private bool _busy;
+
+    private async Task ConfirmAsync()
+    {
+        _busy = true;
+        try { await OnConfirm.InvokeAsync(); }
+        finally { _busy = false; }
+    }
+}

@@ -1,0 +1,37 @@
+@inject IJSRuntime JS
+@* Swipe left to reveal "Дублювати" and "Видалити" (CSS scroll-snap, no gesture code). *@
+<div class="swipe noscroll" @ref="_row">
+    <button type="button" class="swipe-main" @onclick="Open">
+        <Thumb Class="recipe-thumb" Photo="@Recipe.PhotoUrl" Icon="@Categories.LineIcon(Recipe.Line)" />
+        <div class="row-text">
+            <div class="row-name">@Recipe.Name</div>
+            <div class="row-desc">@(string.IsNullOrWhiteSpace(Recipe.Description) ? "Без опису" : Recipe.Description)</div>
+            <div class="row-meta">
+                <span>@Recipe.Items.Count комп.</span>
+                <span>@Formatting.Amount(Recipe.Weight, Categories.CapacityUnit(Recipe.Line))</span>
+            </div>
+        </div>
+        <div class="row-cost">
+            <b>@Formatting.Money(Cost)</b>
+            <small>за шт</small>
+        </div>
+    </button>
+    <button type="button" class="swipe-action dup" @onclick="() => Act(Duplicate)"><i class="ph ph-copy"></i>Дублювати</button>
+    <button type="button" class="swipe-action last" @onclick="() => Act(Delete)"><i class="ph ph-trash"></i>Видалити</button>
+</div>
+
+@code {
+    private ElementReference _row;
+
+    [Parameter, EditorRequired] public RecipeDto Recipe { get; set; } = null!;
+    [Parameter] public decimal Cost { get; set; }
+    [Parameter] public EventCallback Open { get; set; }
+    [Parameter] public EventCallback Duplicate { get; set; }
+    [Parameter] public EventCallback Delete { get; set; }
+
+    private async Task Act(EventCallback action)
+    {
+        await JS.InvokeVoidAsync("soapAndSoul.resetSwipe", _row);
+        await action.InvokeAsync();
+    }
+}
