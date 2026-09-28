@@ -1,70 +1,70 @@
 # Soap & Soul
 
-PWA для рецептів мила й парфумів із підрахунком собівартості. Працює в браузері, встановлюється на Android
-(і на iPhone/Windows) як додаток.
+A PWA for soap and perfume recipes with cost calculation. It runs in the browser and can be installed as an app
+on Android (as well as iPhone and Windows).
 
-## Запуск
+## Getting started
 
-Потрібен [.NET 10 SDK](https://dotnet.microsoft.com/download).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
 dotnet run --project src/SoapAndSoul.Api
 ```
 
-Відкрийте http://localhost:5068. У режимі розробки база SQLite (`src/SoapAndSoul.Api/App_Data/soapandsoul.db`)
-створюється сама й заповнюється прикладами. Щоб почати з нуля, видаліть цей файл.
+Open http://localhost:5068. In development the SQLite database (`src/SoapAndSoul.Api/App_Data/soapandsoul.db`)
+is created automatically and seeded with sample data. Delete the file to start from scratch.
 
 ```bash
-dotnet test                 # тести домену та API
-dotnet publish src/SoapAndSoul.Api -c Release -o out   # збірка для сервера
+dotnet test                                            # domain and API tests
+dotnet publish src/SoapAndSoul.Api -c Release -o out   # server build
 ```
 
-### Перевірка на телефоні
+### Testing on a phone
 
-PWA ставиться лише з HTTPS (або з `localhost`). Найпростіше:
-- Android + USB: `chrome://inspect` → Port forwarding `5068 → localhost:5068`, тоді на телефоні відкрити `http://localhost:5068`;
-- або тунель (`dev tunnels`, `ngrok`) до порту 5068.
+A PWA can only be installed over HTTPS (or from `localhost`). The simplest options:
+- Android + USB: `chrome://inspect` → Port forwarding `5068 → localhost:5068`, then open `http://localhost:5068` on the phone;
+- or a tunnel (`dev tunnels`, `ngrok`) to port 5068.
 
-У Chrome на Android: меню ⋮ → «Встановити додаток».
+In Chrome on Android: menu ⋮ → "Install app".
 
-## Структура
+## Structure
 
-| Проєкт | Що робить |
+| Project | Purpose |
 |---|---|
-| `SoapAndSoul.Domain` | Спільний для клієнта й сервера: категорії, правила вибору, собівартість, валідація, пошук, форматування. Без EF і UI. |
-| `SoapAndSoul.Data` | EF Core: сутності, `SoapAndSoulDbContext`, міграції, приклади даних. |
-| `SoapAndSoul.Api` | ASP.NET Core Minimal API (`/api/...`) + роздає клієнт. Фото — на диск (`IImageStorage`). |
-| `SoapAndSoul.Client` | Blazor WebAssembly PWA за дизайном `docs/design/soap-and-soul-mobile-v2.html`. |
-| `tests/*` | xUnit: правила й розрахунки (Domain), інтеграційні тести API. |
+| `SoapAndSoul.Domain` | Shared by client and server: categories, selection rules, costing, validation, search, formatting. No EF or UI. |
+| `SoapAndSoul.Data` | EF Core: entities, `SoapAndSoulDbContext`, migrations, sample data. |
+| `SoapAndSoul.Api` | ASP.NET Core Minimal API (`/api/...`); also serves the client. Photos are stored on disk (`IImageStorage`). |
+| `SoapAndSoul.Client` | Blazor WebAssembly PWA implementing the design in `docs/design/soap-and-soul-mobile-v2.html`. |
+| `tests/*` | xUnit: rules and calculations (Domain), API integration tests. |
 
-Дизайн-довідка: `docs/design/` (прототип v2, опис дизайн-системи Nocturne, переписка з дизайну).
+Design reference: `docs/design/` (v2 prototype, Nocturne design system guide, design discussion).
 
-## Правила предметної області
+## Domain rules
 
-- **Собівартість одиниці**: ціна покупки ÷ кількість. Краплі купуються в мл: 1 мл = 20 крап.
-  **Форма** багаторазова: її ціна ділиться ще й на «використань однієї форми» (за замовчуванням 100).
-- **Форма / флакон** — одна на рецепт; її об’єм стає вагою рецепта й кількістю основи.
-- **Основа** — одна; при виборі береться об’єм форми (або типова порція, якщо форми немає).
-- **Ефірні масла й запашки** в милі не поєднуються: вибір одного прибирає інше.
-- Нові складники додаються з типовою порцією.
-- Обов’язкові слоти: мило — Форма, Основа, Колір, Екстракт, Пакування; парфуми — Флакон, Основа, Запашка.
+- **Unit cost**: purchase price ÷ quantity. Drops are bought in ml: 1 ml = 20 drops.
+  A **mold** is reusable: its price is additionally divided by "uses per mold" (100 by default).
+- **Mold / bottle** — one per recipe; its capacity becomes the recipe weight and the amount of base.
+- **Base** — one per recipe; when selected, it takes the mold capacity (or the default portion if there is no mold).
+- **Essential oils and fragrances** cannot be combined in soap: selecting one removes the other.
+- New ingredients are added with their default portion.
+- Required slots: soap — Mold, Base, Color, Extract, Packaging; perfume — Bottle, Base, Fragrance.
 
-## Архітектурні рішення
+## Architecture decisions
 
-- **Рецепт зберігається цілим документом** (`PUT /api/recipes/{id}`) з повним складом.
-- **Автозбереження**: ~1 с після останньої зміни, а також одразу при виході з екрана чи згортанні додатка.
-- **Ідентифікатори — Guid v7, генерує клієнт.** Кожен запис має `Version` (optimistic concurrency, конфлікт → `409`
-  з актуальною копією) і м’яке видалення. Це підготовка до офлайну.
-- **Доступ до даних на клієнті — через інтерфейси** `IRecipeStore`, `IIngredientStore`, `IImageStore`
-  (зараз `HttpDataStore`).
-- Клієнт працює з `InvariantGlobalization` (менше завантаження): числа форматуються в `Domain/Text/Formatting.cs`,
-  сортування — `UkrainianComparer`.
-- Фото стискаються в браузері до 1280 px перед завантаженням; сервер перевіряє сигнатуру файлу (JPEG/PNG/WebP).
+- **A recipe is saved as a whole document** (`PUT /api/recipes/{id}`) with its full composition.
+- **Auto-save**: ~1 s after the last change, and immediately when leaving the screen or backgrounding the app.
+- **IDs are Guid v7, generated by the client.** Every record has a `Version` (optimistic concurrency; a conflict
+  returns `409` with the current copy) and supports soft delete. This prepares the ground for offline mode.
+- **Client data access goes through interfaces** `IRecipeStore`, `IIngredientStore`, `IImageStore`
+  (currently `HttpDataStore`).
+- The client runs with `InvariantGlobalization` (smaller download): numbers are formatted in `Domain/Text/Formatting.cs`,
+  sorting uses `UkrainianComparer`.
+- Photos are resized in the browser to 1280 px before upload; the server checks the file signature (JPEG/PNG/WebP).
 
-## Що далі
+## Next steps
 
-- **Автентифікація** (кілька користувачів): `[Authorize]` на групі `/api`, Entra ID або ASP.NET Identity.
-- **Azure**: SQL Server-провайдер + окремий набір міграцій; `IImageStorage` на Azure Blob через Managed Identity.
-- **Офлайн**: друга реалізація `IRecipeStore`/`IIngredientStore` на IndexedDB + черга змін і синхронізація за `Version`.
-- **Планшет**: дві колонки (рецепт + панель вибору).
-- Прибирання фото, на які вже ніщо не посилається.
+- **Authentication** (multiple users): `[Authorize]` on the `/api` group, Entra ID or ASP.NET Identity.
+- **Azure**: SQL Server provider + a separate migration set; `IImageStorage` on Azure Blob via Managed Identity.
+- **Offline**: a second `IRecipeStore`/`IIngredientStore` implementation on IndexedDB + a change queue and sync by `Version`.
+- **Tablet**: two-column layout (recipe + selection panel).
+- Cleanup of photos that are no longer referenced.

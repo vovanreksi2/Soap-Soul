@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository. UI text and domain terms are Ukrainian; code and comments are English.
+Guidance for Claude Code in this repository. UI text and domain terms are Ukrainian; code, comments and all documentation (README, docs) are English only.
 
 ## Commands
 
