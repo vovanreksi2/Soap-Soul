@@ -37,6 +37,27 @@ public class IngredientApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Stock_flag_is_saved_and_defaults_to_in_stock()
+    {
+        var mold = await _http.SaveAsync(Mold(Unique("Зірка")));
+        Assert.True(mold.InStock);
+
+        var reference = await _http.SaveAsync(mold with { InStock = false });
+        Assert.False((await ListAsync(CosmeticLine.Soap)).Single(i => i.Id == mold.Id).InStock);
+
+        // Clients that predate the flag leave it out; saving must not take the ingredient out of stock.
+        var id = Guid.CreateVersion7();
+        var res = await _http.PutAsJsonAsync($"/api/ingredients/{id}", new
+        {
+            id, line = "Soap", category = "Mold", name = Unique("Без прапорця"), unit = "Piece",
+            typicalAmount = 1, purchaseQuantity = 1, purchasePrice = 100, capacity = 90, usesPerItem = 100,
+        });
+        res.EnsureSuccessStatusCode();
+        Assert.True((await res.Content.ReadFromJsonAsync<IngredientDto>())!.InStock);
+        Assert.False(reference.InStock);
+    }
+
+    [Fact]
     public async Task List_contains_only_the_requested_line_ordered_by_category_then_name()
     {
         var suffix = Unique("");

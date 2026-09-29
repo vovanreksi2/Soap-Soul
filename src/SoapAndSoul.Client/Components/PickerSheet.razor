@@ -1,4 +1,5 @@
-@* Full-height sheet with the ingredients of one category. Tap toggles; single-choice categories close after a pick. *@
+@* Full-height sheet with the ingredients of one category: what the user has in stock, or the whole reference catalog.
+   Tap toggles; single-choice categories close after a pick. *@
 <Sheet Variant="full" Label="@Category.Label" OnClose="OnClose">
     <div class="sheet-head">
         <div class="grabber"></div>
@@ -8,6 +9,14 @@
             <button type="button" class="btn btn-ghost" @onclick="OnClose">Готово</button>
         </div>
         <div class="sheet-hint"><i class="ph ph-info"></i><span>@Category.Hint</span></div>
+        <div class="seg pick-tabs" role="tablist">
+            <button type="button" role="tab" class="seg-btn @(_all ? "" : "on")" aria-selected="@(!_all)" @onclick="() => _all = false">
+                <i class="ph ph-package"></i>В наявності<span class="count">@InStock.Count()</span>
+            </button>
+            <button type="button" role="tab" class="seg-btn @(_all ? "on" : "")" aria-selected="@_all" @onclick="() => _all = true">
+                <i class="ph ph-books"></i>Довідник<span class="count">@Options.Count</span>
+            </button>
+        </div>
         @if (Options.Count > 6)
         {
             <div class="pick-search">
@@ -17,16 +26,28 @@
         }
     </div>
     <div class="sheet-body noscroll">
+        @if (!_all && Matches.Count == 0)
+        {
+            <div class="pick-empty">
+                <span>@(string.IsNullOrWhiteSpace(_query) ? "Поки нічого не позначено як наявне." : "У наявності такого немає.")</span>
+                <button type="button" class="btn btn-secondary" @onclick="() => _all = true"><i class="ph ph-books"></i>Шукати в довіднику</button>
+            </div>
+        }
         @* Catalog categories hold hundreds of items: render only the visible rows (64px + 6px gap). *@
         <Virtualize Items="Matches" Context="ing" ItemSize="70">
             @{ var selected = Selected.Contains(ing.Id); }
             <div class="pick @(selected ? "on" : "")" role="checkbox" aria-checked="@selected" tabindex="0"
                  @onclick="() => Toggle.InvokeAsync(ing)">
-                <Thumb Photo="@ing.PhotoUrl" Icon="@Category.Icon" />
+                <Thumb Photo="@ing.PhotoUrl" Icon="@Category.Icon" OnZoom="() => _viewing = ing" />
                 <div class="text">
                     <div class="name">@ing.Name</div>
                     <div class="price">@PriceText(ing)</div>
                 </div>
+                <button type="button" class="icon-btn stock @(ing.InStock ? "on" : "")" aria-pressed="@ing.InStock"
+                        aria-label="В наявності" title="@(ing.InStock ? "Є в наявності" : "Позначити як наявне")"
+                        @onclick="() => ToggleStock.InvokeAsync(ing)" @onclick:stopPropagation="true">
+                    <i class="ph ph-package"></i>
+                </button>
                 <button type="button" class="icon-btn edit" aria-label="Редагувати" @onclick="() => Edit.InvokeAsync(ing)" @onclick:stopPropagation="true">
                     <i class="ph ph-pencil-simple"></i>
                 </button>
@@ -37,18 +58,32 @@
     </div>
 </Sheet>
 
+@if (_viewing is { PhotoUrl: { } photo } viewing)
+{
+    <PhotoViewer Photo="@photo" Caption="@viewing.Name" OnClose="() => _viewing = null" />
+}
+
 @code {
     [Parameter, EditorRequired] public CategoryDefinition Category { get; set; } = null!;
     [Parameter, EditorRequired] public IReadOnlyList<IngredientDto> Options { get; set; } = [];
     [Parameter, EditorRequired] public IReadOnlySet<Guid> Selected { get; set; } = new HashSet<Guid>();
     [Parameter] public EventCallback<IngredientDto> Toggle { get; set; }
+    [Parameter] public EventCallback<IngredientDto> ToggleStock { get; set; }
     [Parameter] public EventCallback<IngredientDto> Edit { get; set; }
     [Parameter] public EventCallback Add { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
     private string _query = "";
+    private bool _all;
+    private IngredientDto? _viewing;
 
-    private List<IngredientDto> Matches => Options.Where(i => FuzzyMatcher.Matches(_query, i.Name)).ToList();
+    /// <summary>In stock, plus whatever the recipe already uses so it can be unselected here.</summary>
+    private IEnumerable<IngredientDto> InStock => Options.Where(i => i.InStock || Selected.Contains(i.Id));
+
+    private List<IngredientDto> Matches => (_all ? Options : InStock).Where(i => FuzzyMatcher.Matches(_query, i.Name)).ToList();
+
+    // Opens on the catalog when nothing in this category is in stock yet.
+    protected override void OnInitialized() => _all = !InStock.Any();
 
     private string PriceText(IngredientDto i)
     {

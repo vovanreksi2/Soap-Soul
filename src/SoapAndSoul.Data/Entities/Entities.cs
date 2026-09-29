@@ -28,6 +28,8 @@ public class Ingredient : TrackedEntity
     public decimal? Capacity { get; set; }
     public int UsesPerItem { get; set; } = 1;
     public string? PhotoUrl { get; set; }
+    /// <summary>False for supplier-catalog entries the user only keeps for reference.</summary>
+    public bool InStock { get; set; } = true;
 }
 
 public class Recipe : TrackedEntity

@@ -81,6 +81,18 @@
         </div>
     }
 
+    <div class="field">
+        <label>Наявність</label>
+        <div class="seg units">
+            <button type="button" class="seg-btn @(_inStock ? "on" : "")" aria-pressed="@_inStock" @onclick="() => _inStock = true">
+                <i class="ph ph-package"></i>В наявності
+            </button>
+            <button type="button" class="seg-btn @(_inStock ? "" : "on")" aria-pressed="@(!_inStock)" @onclick="() => _inStock = false">
+                <i class="ph ph-books"></i>Лише в довіднику
+            </button>
+        </div>
+    </div>
+
     <div class="hint-box"><i class="ph ph-lightbulb"></i><span>@HintText</span></div>
 
     <div class="form-actions">
@@ -111,6 +123,7 @@
     private string _buyPrice = "";
     private string _uses = "";
     private string? _photo;
+    private bool _inStock = true;
     private bool _uploading;
     private bool _saving;
     private bool _confirmDelete;
@@ -138,6 +151,7 @@
         _buyPrice = Formatting.Input(e.PurchasePrice);
         _uses = e.UsesPerItem.ToString(CultureInfo.InvariantCulture);
         _photo = e.PhotoUrl;
+        _inStock = e.InStock;
     }
 
     private (IngredientDto Dto, bool Valid) Build()
@@ -152,6 +166,7 @@
             Capacity: Category.HasCapacity ? portion : null,
             UsesPerItem: uses,
             PhotoUrl: _photo,
+            InStock: _inStock,
             Version: Existing?.Version);
         return (dto, SoapAndSoul.Domain.Validation.IngredientValidator.Validate(dto).IsValid);
     }

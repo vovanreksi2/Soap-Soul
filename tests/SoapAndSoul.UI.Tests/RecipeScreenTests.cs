@@ -75,6 +75,37 @@ public class RecipeScreenTests(AppFixture app) : UiTest(app)
     }
 
     [Fact]
+    public async Task Picker_separates_stock_from_the_catalog_and_zooms_photos()
+    {
+        var owned = await Api.SaveAsync(Pigment(Unique("Охра")) with { PhotoUrl = "/icon-192.png" });
+        var reference = await Api.SaveAsync(Pigment(Unique("Кобальт")) with { InStock = false });
+        await OpenNewRecipeAsync();
+
+        await EmptySlot("Колір").ClickAsync();
+        var picker = Dialog("Колір");
+        var ownedRow = picker.Locator(".pick", new() { HasText = owned.Name });
+        var referenceRow = picker.Locator(".pick", new() { HasText = reference.Name });
+        await Expect(ownedRow).ToBeVisibleAsync();
+        await Expect(referenceRow).ToHaveCountAsync(0);
+
+        // Marking a catalog entry as owned moves it into the stock tab.
+        await picker.GetByRole(AriaRole.Tab, new() { Name = "Довідник" }).ClickAsync();
+        await referenceRow.GetByRole(AriaRole.Button, new() { Name = "В наявності" }).ClickAsync();
+        await Expect(referenceRow.Locator(".stock.on")).ToBeVisibleAsync();
+        Assert.True((await Api.GetFromJsonAsync<List<IngredientDto>>("/api/ingredients?line=Soap"))!.Single(i => i.Id == reference.Id).InStock);
+        await picker.GetByRole(AriaRole.Tab, new() { Name = "В наявності" }).ClickAsync();
+        await Expect(referenceRow).ToBeVisibleAsync();
+
+        // The photo opens large without picking the ingredient.
+        await ownedRow.GetByRole(AriaRole.Button, new() { Name = "Збільшити фото" }).ClickAsync();
+        var viewer = Dialog(owned.Name);
+        await Expect(viewer.Locator("img")).ToHaveAttributeAsync("src", "/icon-192.png");
+        await viewer.ClickAsync();
+        await Expect(viewer).ToHaveCountAsync(0);
+        await Expect(ownedRow).Not.ToHaveClassAsync(new Regex(@"\bon\b"));
+    }
+
+    [Fact]
     public async Task New_ingredient_from_the_picker_goes_into_the_catalog_and_the_recipe()
     {
         var name = Unique("Перламутр");
