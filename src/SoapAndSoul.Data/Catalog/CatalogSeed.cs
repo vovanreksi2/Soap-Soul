@@ -29,8 +29,10 @@ public static class CatalogSeed
     /// <summary>Adds catalog entries that were never stored; returns how many were added.</summary>
     public static async Task<int> SeedAsync(SoapAndSoulDbContext db, CancellationToken ct = default)
     {
-        var ids = Entries.Select(e => e.Id).ToList();
-        var existing = await db.Ingredients.IgnoreQueryFilters().Where(i => ids.Contains(i.Id)).Select(i => i.Id).ToListAsync(ct);
+        // All ids of the catalog's lines, compared in memory: an IN list of the whole catalog would exceed
+        // SQL Server's 2100-parameter limit.
+        var lines = Entries.Select(e => e.Line).Distinct().ToList();
+        var existing = await db.Ingredients.IgnoreQueryFilters().Where(i => lines.Contains(i.Line)).Select(i => i.Id).ToListAsync(ct);
         var missing = Entries.ExceptBy(existing, e => e.Id).ToList();
         if (missing.Count == 0) return 0;
 
