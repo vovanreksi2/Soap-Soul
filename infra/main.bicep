@@ -186,6 +186,9 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
+      // The package also holds SoapAndSoul.Client.runtimeconfig.json; without an explicit command the platform
+      // cannot tell which assembly to start and serves its default page instead.
+      appCommandLine: 'dotnet SoapAndSoul.Api.dll'
       alwaysOn: true
       http20Enabled: true
       minTlsVersion: '1.2'

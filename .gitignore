@@ -63,3 +63,6 @@ src/SoapAndSoul.Api/App_Data/*
 *.db
 *.db-shm
 *.db-wal
+
+# aromasoap scraper page cache
+tools/aromasoap/.cache/

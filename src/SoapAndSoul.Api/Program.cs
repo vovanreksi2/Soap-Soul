@@ -7,6 +7,7 @@ using SoapAndSoul.Api.Llm;
 using SoapAndSoul.Api.Mcp;
 using SoapAndSoul.Api.Services;
 using SoapAndSoul.Data;
+using SoapAndSoul.Data.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,8 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SoapAndSoulDbContext>();
     await db.Database.MigrateAsync();
+    if (app.Configuration.GetValue<bool>("Database:SeedCatalog"))
+        await CatalogSeed.SeedAsync(db);
     if (app.Configuration.GetValue<bool>("Database:SeedSampleData"))
         await SeedData.SeedIfEmptyAsync(db);
 }
