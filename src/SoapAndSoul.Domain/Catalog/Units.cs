@@ -21,4 +21,13 @@ public static class Units
     /// <summary>Step used by the +/− buttons for an amount in this unit.</summary>
     public static decimal Step(this MeasureUnit unit) =>
         unit is MeasureUnit.Gram or MeasureUnit.Milliliter ? 5 : 1;
+
+    /// <summary>Converts between units that measure the same thing (мл ↔ крап); null when they don't.</summary>
+    public static decimal? Convert(decimal amount, MeasureUnit from, MeasureUnit to) => (from, to) switch
+    {
+        _ when from == to => amount,
+        (MeasureUnit.Milliliter, MeasureUnit.Drop) => amount * DropsPerMilliliter,
+        (MeasureUnit.Drop, MeasureUnit.Milliliter) => amount / DropsPerMilliliter,
+        _ => null,
+    };
 }

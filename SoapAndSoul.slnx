@@ -9,5 +9,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/SoapAndSoul.Api.Tests/SoapAndSoul.Api.Tests.csproj" />
     <Project Path="tests/SoapAndSoul.Domain.Tests/SoapAndSoul.Domain.Tests.csproj" />
+    <Project Path="tests/SoapAndSoul.UI.Tests/SoapAndSoul.UI.Tests.csproj" />
   </Folder>
 </Solution>

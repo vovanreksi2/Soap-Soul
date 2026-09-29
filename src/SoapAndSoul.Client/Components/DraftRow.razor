@@ -1,0 +1,20 @@
+@* One line of the voice draft preview: icon, caption, value and an optional amount. *@
+<div class="voice-row @(Warning ? "warn" : "")">
+    <span class="icon"><i class="ph @Icon"></i></span>
+    <span class="text">
+        <span class="label">@Label</span>
+        <span class="value">@Value</span>
+    </span>
+    @if (!string.IsNullOrEmpty(Extra))
+    {
+        <span class="extra">@Extra</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public string? Extra { get; set; }
+    [Parameter] public bool Warning { get; set; }
+}

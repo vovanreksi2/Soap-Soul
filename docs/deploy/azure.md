@@ -10,8 +10,9 @@ Production runs on Azure App Service with Azure SQL and Blob Storage. Everything
   2. deploy the app to the Web App from the template outputs;
   3. poll `/healthz` until it answers.
 
-GitHub signs in to Azure with OpenID Connect. The app signs in to SQL and Blob Storage with a managed identity.
-No passwords, connection secrets or storage keys exist anywhere.
+GitHub signs in to Azure with OpenID Connect. The app signs in to SQL, Blob Storage and Key Vault with a managed
+identity. No passwords, connection secrets or storage keys exist anywhere. The only secrets are third-party API keys
+(Anthropic, the MCP key); they live in Key Vault and are set by hand, never by the template or the pipeline.
 
 ## What gets deployed
 
@@ -22,6 +23,7 @@ No passwords, connection secrets or storage keys exist anywhere.
 | Storage account + `images` container | `stsoapandsoul<hash>` | No public access, shared keys disabled, 7-day soft delete |
 | App Service plan | `asp-soapandsoul` | Linux B1; skipped when an existing plan is reused |
 | Web App | `app-soapandsoul-<hash>` | .NET 10, HTTPS only, Always On, health check `/healthz` |
+| Key Vault | `kvsoapandsoul<hash>` | RBAC only; the app identity has *Key Vault Secrets User* |
 
 `<hash>` is derived from the resource group id, so names are stable across deployments. The names and SKUs
 are parameters in `main.bicep`; set them in [`infra/main.bicepparam`](../../infra/main.bicepparam).
@@ -37,12 +39,22 @@ The template writes these app settings; nothing is configured by hand:
 | `Images__Provider` | `AzureBlob` |
 | `Images__BlobServiceUri` / `Images__Container` | the storage account's blob endpoint / `images` |
 | `Images__ManagedIdentityClientId` | the identity's client id |
+| `KeyVault__Uri` / `KeyVault__ManagedIdentityClientId` | the vault's URI / the identity's client id |
+| `Llm__Provider` | `Anthropic` |
 
 - **SQL**: the app applies the SQL Server migrations (`src/SoapAndSoul.Data.SqlServer/Migrations`) at startup.
   Connections retry on transient Azure SQL errors.
 - **Photos**: uploaded to the private `images` container. The app streams them to the browser at
   `/images/{name}`, so photo URLs stay the same as in development and the storage account stays private.
   The identity has *Storage Blob Data Contributor* on the `images` container only.
+- **Secrets**: at startup the app loads the vault's secrets into configuration (`--` stands for `:`):
+
+  | Secret | Setting | Without it |
+  |---|---|---|
+  | `Llm--ApiKey` | `Llm:ApiKey` | voice drafts are off (the microphone button is hidden) |
+  | `Mcp--ApiKey` | `Mcp:ApiKey` | `/mcp` is off (404); with it, clients send `Authorization: Bearer <key>` |
+
+  Secrets are read once, so the app is restarted after a change (`infra/set-secrets.sh` does it).
 
 ### Security trade-offs
 
@@ -60,6 +72,8 @@ The template writes these app settings; nothing is configured by hand:
 
 Run with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) after `az login`.
 You need Owner (or User Access Administrator) on the resource group to grant the roles below.
+The commands are bash. In Git Bash on Windows, run `export MSYS_NO_PATHCONV=1` first, otherwise arguments
+such as `/subscriptions/...` are rewritten into Windows paths.
 
 ```bash
 RG=<resource-group>            # the old site's resource group, or a new one
@@ -85,10 +99,12 @@ az ad app federated-credential create --id $CLIENT_ID --parameters "{
 # Create and update resources in the group.
 az role assignment create --assignee $CLIENT_ID --role Contributor --scope $RG_ID
 
-# Assign roles, but only "Storage Blob Data Contributor" (what the template grants the app identity).
+# Assign roles, but only the two the template grants the app identity:
+# "Storage Blob Data Contributor" and "Key Vault Secrets User".
 BLOB_ROLE=ba92f5b4-2d11-453d-a403-e96b0029c9fe
+KV_ROLE=4633458b-17de-408a-b874-0445c86b69e6
 az role assignment create --assignee $CLIENT_ID --role "Role Based Access Control Administrator" --scope $RG_ID \
-  --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$BLOB_ROLE})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$BLOB_ROLE}))"
+  --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$BLOB_ROLE, $KV_ROLE})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$BLOB_ROLE, $KV_ROLE}))"
 
 echo "AZURE_CLIENT_ID=$CLIENT_ID"
 echo "AZURE_TENANT_ID=$(az account show --query tenantId -o tsv)"
@@ -97,6 +113,10 @@ echo "AZURE_RESOURCE_GROUP=$RG"
 ```
 
 The federated credential only works for jobs in the `production` environment of this repository.
+
+If the deployment identity already has this role with the older, Blob-only condition, delete that assignment
+(`az role assignment delete --assignee $CLIENT_ID --role "Role Based Access Control Administrator" --scope $RG_ID`)
+and create it again with the command above.
 
 ### 2. GitHub repository
 
@@ -107,7 +127,24 @@ The federated credential only works for jobs in the `production` environment of 
 3. Push to `main` or run **Actions → Build and deploy → Run workflow**. The first run creates everything
    (SQL takes a few minutes); later runs only update what changed.
 
-### 3. Reusing the old site
+### 3. Secrets
+
+After the first deployment has created the vault, put the keys into it:
+
+```bash
+bash infra/set-secrets.sh $RG     # asks for the Anthropic API key (or reads ANTHROPIC_API_KEY), generates the MCP key
+```
+
+The script grants you *Key Vault Secrets Officer* on the vault, writes `Llm--ApiKey` and a random `Mcp--ApiKey`
+(existing ones are kept), and restarts the app. Later: `--anthropic` replaces the Anthropic key, `--rotate-mcp`
+issues a new MCP key. Read the MCP key for a client with
+`az keyvault secret show --vault-name <vault> -n Mcp--ApiKey --query value -o tsv`, then:
+
+```bash
+claude mcp add --transport http soap-and-soul https://<app>.azurewebsites.net/mcp --header "Authorization: Bearer <key>"
+```
+
+### 4. Reusing the old site
 
 - **Resource group**: use it as `AZURE_RESOURCE_GROUP`. The template only adds its own resources and leaves
   the others alone (deployments are incremental).

@@ -1,0 +1,190 @@
+@* Dictate a recipe: speech is recognized on the device, the server structures the text, the user reviews it before it is applied. *@
+@implements IAsyncDisposable
+@inject ISpeechRecognizer Speech
+@inject IRecipeDraftService Drafts
+@inject CatalogState Catalog
+
+<Sheet Variant="form" Class="voice" Top="true" Label="Голосовий ввід" OnClose="CloseAsync">
+    <div class="grabber"></div>
+    <div class="form-head">
+        <div class="dialog-title">@(_draft is null ? "Продиктуйте рецепт" : "Що буде додано")</div>
+    </div>
+
+    @if (_draft is not { } draft)
+    {
+        <div class="sheet-hint">
+            <i class="ph ph-info"></i>
+            <span>Назва, склад із кількістю, вага, час, партія, кроки. Можна диктувати частинами — додане не зітреться.</span>
+        </div>
+
+        <textarea class="input voice-text" rows="6" aria-label="Продиктований текст" disabled="@_busy"
+                  placeholder="Напр.: лавандове мило, форма овал, основа, двадцять крапель лаванди, готується сорок хвилин"
+                  value="@_text" @oninput="e => _text = e.Value?.ToString() ?? string.Empty"></textarea>
+        @if (_interim.Length > 0)
+        {
+            <div class="voice-interim">@_interim…</div>
+        }
+
+        <div class="voice-mic">
+            @if (_supported)
+            {
+                <button type="button" class="mic @(Speech.IsListening ? "on" : "")" disabled="@_busy" @onclick="ToggleAsync"
+                        aria-label="@(Speech.IsListening ? "Зупинити запис" : "Говорити")" aria-pressed="@Speech.IsListening">
+                    <i class="ph @(Speech.IsListening ? "ph-stop" : "ph-microphone")"></i>
+                </button>
+                <span class="voice-status">
+                    @if (Speech.IsListening)
+                    {
+                        @(Speech.IsOnDevice ? "Слухаю · на пристрої" : "Слухаю…")
+                    }
+                    else
+                    {
+                        @("Натисніть і говоріть")
+                    }
+                </span>
+            }
+            else
+            {
+                <span class="voice-status">Браузер не розпізнає мову — скористайтеся мікрофоном на клавіатурі.</span>
+            }
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="field-error">@_error</div>
+        }
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @onclick="CloseAsync">Скасувати</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_text))" @onclick="ParseAsync">
+                @if (_busy) { <div class="spinner"></div> } else { <i class="ph ph-magic-wand"></i> }Розібрати
+            </button>
+        </div>
+    }
+    else
+    {
+        var capUnit = Categories.CapacityUnit(Line);
+        <div class="voice-preview">
+            @if (!string.IsNullOrWhiteSpace(draft.Name)) { <DraftRow Icon="ph-textbox" Label="Назва" Value="@draft.Name" /> }
+            @if (draft.Weight is { } w) { <DraftRow Icon="ph-scales" Label="Вага" Value="@Formatting.Amount(w, capUnit)" /> }
+            @if (draft.TimeMinutes is { } t) { <DraftRow Icon="ph-timer" Label="Час" Value="@($"{t} хв")" /> }
+            @if (draft.BatchSize is { } b) { <DraftRow Icon="ph-stack" Label="Партія" Value="@($"{b} шт")" /> }
+            @if (!string.IsNullOrWhiteSpace(draft.Description)) { <DraftRow Icon="ph-note" Label="Опис" Value="@draft.Description" /> }
+
+            @foreach (var item in draft.Items)
+            {
+                if (item.IngredientId is { } id && Catalog.Ingredient(id) is { } ing)
+                {
+                    var cat = Categories.Get(Line, ing.Category);
+                    var amount = cat.HasCapacity || item.Amount is not { } a ? "" : Formatting.Amount(a, item.Unit ?? ing.Unit);
+                    <DraftRow Icon="@cat.Icon" Label="@cat.Label" Value="@ing.Name" Extra="@amount" />
+                }
+                else
+                {
+                    <DraftRow Icon="ph-question" Label="Немає в каталозі" Value="@item.SpokenName" Warning="true" />
+                }
+            }
+
+            @if (IsEmpty(draft))
+            {
+                <div class="empty-note">Нічого не вдалося розпізнати. Змініть текст і спробуйте ще раз.</div>
+            }
+            @foreach (var note in draft.Notes)
+            {
+                <div class="sheet-hint"><i class="ph ph-warning"></i><span>@note</span></div>
+            }
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @onclick="() => _draft = null"><i class="ph ph-pencil-simple"></i>Змінити текст</button>
+            <button type="button" class="btn btn-primary" disabled="@IsEmpty(draft)" @onclick="() => OnApply.InvokeAsync(draft)"><i class="ph ph-check"></i>Додати</button>
+        </div>
+    }
+</Sheet>
+
+@code {
+    [Parameter, EditorRequired] public CosmeticLine Line { get; set; }
+    [Parameter] public EventCallback<RecipeDraftDto> OnApply { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _text = "";
+    private string _interim = "";
+    private string? _error;
+    private bool _supported;
+    private bool _busy;
+    private RecipeDraftDto? _draft;
+
+    protected override void OnInitialized()
+    {
+        Speech.Updated += OnSpeech;
+        Speech.Stopped += OnStopped;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _supported = await Speech.IsSupportedAsync();
+        if (_supported) await StartAsync();
+        StateHasChanged();
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (Speech.IsListening) await Speech.StopAsync();
+        else await StartAsync();
+    }
+
+    private async Task StartAsync()
+    {
+        _error = null;
+        try { await Speech.StartAsync(); }
+        catch (JSException) { _error = "Не вдалося увімкнути мікрофон"; }
+    }
+
+    private void OnSpeech(SpeechUpdate update)
+    {
+        if (update.Final.Length > 0) _text = string.IsNullOrWhiteSpace(_text) ? update.Final.Trim() : _text.TrimEnd() + " " + update.Final.Trim();
+        _interim = update.Interim.Trim();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnStopped(string? error)
+    {
+        _interim = "";
+        _error = error;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ParseAsync()
+    {
+        if (Speech.IsListening) await Speech.StopAsync();
+        _busy = true;
+        _error = null;
+        try
+        {
+            switch (await Drafts.DraftAsync(new RecipeDraftRequest(Line, _text)))
+            {
+                case DraftResult.Ok { Draft: var draft }: _draft = draft; break;
+                case DraftResult.Failed { Message: var message }: _error = message; break;
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    private static bool IsEmpty(RecipeDraftDto d) =>
+        string.IsNullOrWhiteSpace(d.Name) && string.IsNullOrWhiteSpace(d.Description) && d.Weight is null
+        && d.TimeMinutes is null && d.BatchSize is null && d.Items.Count == 0;
+
+    private async Task CloseAsync()
+    {
+        if (Speech.IsListening) await Speech.StopAsync();
+        await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Speech.Updated -= OnSpeech;
+        Speech.Stopped -= OnStopped;
+        await Speech.DisposeAsync();
+    }
+}

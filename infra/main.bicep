@@ -1,5 +1,6 @@
-// Production infrastructure: App Service (Linux, .NET 10) + Azure SQL + Blob Storage.
-// The app reaches SQL and Blob Storage with one user-assigned managed identity; there are no passwords or keys.
+// Production infrastructure: App Service (Linux, .NET 10) + Azure SQL + Blob Storage + Key Vault.
+// The app reaches all of them with one user-assigned managed identity. The only secrets (third-party API keys)
+// live in Key Vault; they are set by hand (infra/set-secrets.sh), never by the template or the pipeline.
 // Deployed by .github/workflows/deploy.yml before every app deployment (idempotent). See docs/deploy/azure.md.
 
 targetScope = 'resourceGroup'
@@ -26,6 +27,7 @@ param sqlDatabaseSku object = {
 
 var suffix = uniqueString(resourceGroup().id)
 var storageBlobDataContributor = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var keyVaultSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-${name}'
@@ -121,6 +123,36 @@ resource imagesAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// --- Key Vault ---------------------------------------------------------------------------------------
+
+// Secrets the app loads into configuration at startup: "Llm--ApiKey" → Llm:ApiKey, "Mcp--ApiKey" → Mcp:ApiKey.
+// RBAC only; the app identity can read secrets, nothing else.
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: take('kv${replace(name, '-', '')}${suffix}', 24)
+  location: location
+  properties: {
+    tenantId: tenant().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 90
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource keyVaultAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, identity.id, keyVaultSecretsUser)
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUser)
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // --- App Service -------------------------------------------------------------------------------------
 
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = if (empty(appServicePlanId)) {
@@ -145,6 +177,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
       '${identity.id}': {}
     }
   }
+  // The app reads Key Vault at startup, so its access must exist first.
+  dependsOn: [
+    keyVaultAccess
+  ]
   properties: {
     serverFarmId: empty(appServicePlanId) ? plan.id : appServicePlanId
     httpsOnly: true
@@ -165,6 +201,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'Images__BlobServiceUri', value: storage.properties.primaryEndpoints.blob }
         { name: 'Images__Container', value: imagesContainer.name }
         { name: 'Images__ManagedIdentityClientId', value: identity.properties.clientId }
+        { name: 'KeyVault__Uri', value: keyVault.properties.vaultUri }
+        { name: 'KeyVault__ManagedIdentityClientId', value: identity.properties.clientId }
+        // Voice drafts and MCP stay off until their keys are in Key Vault.
+        { name: 'Llm__Provider', value: 'Anthropic' }
       ]
     }
   }
@@ -191,3 +231,4 @@ output webAppName string = webApp.name
 output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
 output sqlServerName string = sqlServer.name
 output storageAccountName string = storage.name
+output keyVaultName string = keyVault.name

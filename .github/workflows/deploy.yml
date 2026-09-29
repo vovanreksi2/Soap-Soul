@@ -36,6 +36,9 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
+      - name: Install browser for UI tests
+        run: pwsh tests/SoapAndSoul.UI.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
       - name: Test
         run: dotnet test -c Release --no-build
 

@@ -13,6 +13,8 @@ builder.Services.AddScoped<HttpDataStore>();
 builder.Services.AddScoped<IIngredientStore>(sp => sp.GetRequiredService<HttpDataStore>());
 builder.Services.AddScoped<IRecipeStore>(sp => sp.GetRequiredService<HttpDataStore>());
 builder.Services.AddScoped<IImageStore>(sp => sp.GetRequiredService<HttpDataStore>());
+builder.Services.AddScoped<IRecipeDraftService>(sp => sp.GetRequiredService<HttpDataStore>());
+builder.Services.AddTransient<ISpeechRecognizer, BrowserSpeechRecognizer>();
 builder.Services.AddScoped<CatalogState>();
 builder.Services.AddScoped<ListState>();
 builder.Services.AddScoped<ToastService>();
