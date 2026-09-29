@@ -96,6 +96,18 @@ az ad app federated-credential create --id $CLIENT_ID --parameters "{
   \"audiences\": [\"api://AzureADTokenExchange\"]
 }"
 
+# GitHub may send the subject in its ID-based form instead
+# (repo:<owner>@<owner-id>/<repo>@<repo-id>:environment:production), so trust that one too.
+# Needs the GitHub CLI (gh auth login).
+OWNER_ID=$(gh api repos/$REPO --jq .owner.id)
+REPO_ID=$(gh api repos/$REPO --jq .id)
+az ad app federated-credential create --id $CLIENT_ID --parameters "{
+  \"name\": \"github-production-ids\",
+  \"issuer\": \"https://token.actions.githubusercontent.com\",
+  \"subject\": \"repo:${REPO%%/*}@$OWNER_ID/${REPO#*/}@$REPO_ID:environment:production\",
+  \"audiences\": [\"api://AzureADTokenExchange\"]
+}"
+
 # Create and update resources in the group.
 az role assignment create --assignee $CLIENT_ID --role Contributor --scope $RG_ID
 
@@ -113,6 +125,10 @@ echo "AZURE_RESOURCE_GROUP=$RG"
 ```
 
 The federated credential only works for jobs in the `production` environment of this repository.
+
+If the login step still fails with `AADSTS700213: No matching federated identity record found for presented assertion
+subject '...'` (for example, after the repository was renamed or transferred), add another federated credential
+whose `subject` is exactly the value quoted in the error.
 
 If the deployment identity already has this role with the older, Blob-only condition, delete that assignment
 (`az role assignment delete --assignee $CLIENT_ID --role "Role Based Access Control Administrator" --scope $RG_ID`)
