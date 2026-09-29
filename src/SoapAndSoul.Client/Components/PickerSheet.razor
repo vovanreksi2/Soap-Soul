@@ -17,9 +17,9 @@
         }
     </div>
     <div class="sheet-body noscroll">
-        @foreach (var ing in Options.Where(i => FuzzyMatcher.Matches(_query, i.Name)))
-        {
-            var selected = Selected.Contains(ing.Id);
+        @* Catalog categories hold hundreds of items: render only the visible rows (64px + 6px gap). *@
+        <Virtualize Items="Matches" Context="ing" ItemSize="70">
+            @{ var selected = Selected.Contains(ing.Id); }
             <div class="pick @(selected ? "on" : "")" role="checkbox" aria-checked="@selected" tabindex="0"
                  @onclick="() => Toggle.InvokeAsync(ing)">
                 <Thumb Photo="@ing.PhotoUrl" Icon="@Category.Icon" />
@@ -32,7 +32,7 @@
                 </button>
                 <span class="check">@if (selected) {<i class="ph ph-check"></i>}</span>
             </div>
-        }
+        </Virtualize>
         <button type="button" class="pick-add" @onclick="Add"><span><i class="ph ph-plus"></i></span>Новий: @Category.Label.ToLowerInvariant()</button>
     </div>
 </Sheet>
@@ -47,6 +47,8 @@
     [Parameter] public EventCallback OnClose { get; set; }
 
     private string _query = "";
+
+    private List<IngredientDto> Matches => Options.Where(i => FuzzyMatcher.Matches(_query, i.Name)).ToList();
 
     private string PriceText(IngredientDto i)
     {

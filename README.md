@@ -14,6 +14,11 @@ dotnet run --project src/SoapAndSoul.Api
 Open http://localhost:5068. In development the SQLite database (`src/SoapAndSoul.Api/App_Data/soapandsoul.db`)
 is created automatically and seeded with sample data. Delete the file to start from scratch.
 
+Every environment (production included) seeds the supplier catalog from aromasoap.com.ua — molds, soap bases,
+colors, fragrances and extracts with prices, capacities and photos — from `src/SoapAndSoul.Data/Catalog/aromasoap.json`
+(`Database:SeedCatalog`). Entries are only ever added: ones you edit or delete are left alone. To refresh the catalog,
+run `python tools/aromasoap/scrape.py` (standard library only; pages are cached in `tools/aromasoap/.cache`).
+
 ```bash
 dotnet build                                           # once, before installing the browser
 pwsh tests/SoapAndSoul.UI.Tests/bin/Debug/net10.0/playwright.ps1 install chromium   # once, for UI tests
@@ -99,7 +104,7 @@ One-time Azure and GitHub setup: [docs/deploy/azure.md](docs/deploy/azure.md).
 | Project | Purpose |
 |---|---|
 | `SoapAndSoul.Domain` | Shared by client and server: categories, selection rules, costing, validation, search, formatting. No EF or UI. |
-| `SoapAndSoul.Data` | EF Core: entities, `SoapAndSoulDbContext`, SQLite migrations, sample data. |
+| `SoapAndSoul.Data` | EF Core: entities, `SoapAndSoulDbContext`, SQLite migrations, supplier catalog, sample data. |
 | `SoapAndSoul.Data.SqlServer` | SQL Server (Azure SQL) setup and migrations, used in production. |
 | `SoapAndSoul.Api` | ASP.NET Core Minimal API (`/api/...`) and MCP server (`/mcp`); also serves the client. Photos go to local disk or Azure Blob Storage (`IImageStorage`); language models behind `ILlmClient`. |
 | `SoapAndSoul.Client` | Blazor WebAssembly PWA implementing the design in `docs/design/soap-and-soul-mobile-v2.html`. |

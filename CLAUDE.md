@@ -23,6 +23,8 @@ tests share a database per class, so use `TestCatalog.Unique` names. `SoapAndSou
 on a Kestrel port and drives Chromium via Playwright (`HEADED=1` to watch); it links the shared files from the API tests.
 
 Development seeds sample data into `src/SoapAndSoul.Api/App_Data/soapandsoul.db` (delete it to reset).
+All environments seed the supplier catalog (`Data/Catalog/CatalogSeed.cs` + embedded `aromasoap.json`, `Database:SeedCatalog`;
+ids derive from the product URL, so only never-seen entries are inserted). Rebuild the JSON with `python tools/aromasoap/scrape.py`.
 Migrations are applied at API startup.
 
 ## Architecture

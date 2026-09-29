@@ -11,8 +11,11 @@ public class ApiFactory : WebApplicationFactory<Program>
     private readonly InMemoryDatabase _database = new();
     private readonly string _images = Path.Combine(Path.GetTempPath(), "soapandsoul-tests", Guid.NewGuid().ToString("N"));
 
-    /// <summary>Fill the database with the development sample data at startup.</summary>
+    /// <summary>Fill the database with the development sample data (and the supplier catalog it uses) at startup.</summary>
     public bool SeedSampleData { get; init; }
+
+    /// <summary>Seed the supplier catalog at startup.</summary>
+    public bool SeedCatalog { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -21,6 +24,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseStaticWebAssets();
         builder.UseSetting("Database:Provider", "Sqlite");
         builder.UseSetting("ConnectionStrings:Default", _database.ConnectionString);
+        builder.UseSetting("Database:SeedCatalog", SeedCatalog ? "true" : "false");
         builder.UseSetting("Database:SeedSampleData", SeedSampleData ? "true" : "false");
         builder.UseSetting("Images:Provider", "Local");
         builder.UseSetting("Images:Path", _images);
