@@ -36,3 +36,18 @@ public interface IImageStore
     /// <returns>URL of the stored image.</returns>
     Task<string> UploadAsync(Stream content, string contentType, CancellationToken ct = default);
 }
+
+public abstract record DraftResult
+{
+    public sealed record Ok(RecipeDraftDto Draft) : DraftResult;
+    public sealed record Failed(string Message) : DraftResult;
+}
+
+/// <summary>Turns dictated text into a recipe draft on the server (a language model does the parsing).</summary>
+public interface IRecipeDraftService
+{
+    /// <summary>False when the server has no language model configured.</summary>
+    Task<bool> IsAvailableAsync(CancellationToken ct = default);
+
+    Task<DraftResult> DraftAsync(RecipeDraftRequest request, CancellationToken ct = default);
+}

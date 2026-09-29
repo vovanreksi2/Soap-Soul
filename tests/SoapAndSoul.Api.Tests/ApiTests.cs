@@ -107,6 +107,13 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/images/0199a0000000700080000000000000ff.png")]
+    [InlineData("/images/appsettings.json")]
+    [InlineData("/images/..%2Fappsettings.json")]
+    public async Task Unknown_or_invalid_image_name_is_404(string url) =>
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync(url)).StatusCode);
+
     [Fact]
     public async Task Unknown_api_route_is_404_not_the_app_shell() =>
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/nope")).StatusCode);

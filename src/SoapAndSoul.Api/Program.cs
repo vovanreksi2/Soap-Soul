@@ -1,19 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using SoapAndSoul.Api;
+using SoapAndSoul.Api.Drafts;
 using SoapAndSoul.Api.Features;
 using SoapAndSoul.Api.Images;
+using SoapAndSoul.Api.Llm;
+using SoapAndSoul.Api.Mcp;
+using SoapAndSoul.Api.Services;
 using SoapAndSoul.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = SqlitePaths.Resolve(
-    builder.Configuration.GetConnectionString("Default")
-        ?? throw new InvalidOperationException("ConnectionStrings:Default is not configured."),
-    builder.Environment.ContentRootPath);
-builder.Services.AddDbContext<SoapAndSoulDbContext>(o => o.UseSqlite(connectionString));
+builder.AddKeyVaultSecrets();
+builder.AddDatabase();
 builder.Services.AddProblemDetails();
-builder.Services.Configure<ImageStorageOptions>(builder.Configuration.GetSection(ImageStorageOptions.Section));
-builder.Services.AddSingleton<IImageStorage, LocalImageStorage>();
+builder.Services.AddImageStorage(builder.Configuration);
+builder.Services.AddScoped<IngredientService>();
+builder.Services.AddScoped<RecipeService>();
+builder.Services.AddLlm(builder.Configuration);
+builder.Services.AddScoped<RecipeDraftBuilder>();
+builder.AddSoapAndSoulMcp();
 
 var app = builder.Build();
 
@@ -29,7 +34,6 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment()) app.UseWebAssemblyDebugging();
 
 app.UseStaticFiles();
-app.UseImageFiles();
 // Serves the client's _framework files by their plain names (fingerprinted and Brotli-compressed on disk).
 app.MapStaticAssets();
 
@@ -37,7 +41,10 @@ var api = app.MapGroup("/api");
 api.MapIngredientEndpoints();
 api.MapRecipeEndpoints();
 api.MapImageEndpoints();
+api.MapDraftEndpoints();
 api.MapFallback(() => Results.NotFound());
+app.MapImageFiles();
+app.MapSoapAndSoulMcp();
 app.MapGet("/healthz", () => Results.Ok("ok"));
 
 app.MapFallbackToFile("index.html");

@@ -5,6 +5,7 @@
 @inject PhotoUploader Photos
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject IRecipeDraftService Drafts
 
 <PageTitle>@(_editor?.Draft.Name ?? "Рецепт") · Soap &amp; Soul</PageTitle>
 
@@ -21,6 +22,10 @@
         {
             <div style="display:flex;align-items:center;gap:4px">
                 <SaveIndicator Editor="_editor" />
+                @if (_voiceAvailable)
+                {
+                    <button type="button" class="btn btn-icon btn-secondary voice-btn" aria-label="Продиктувати" @onclick="OpenVoice"><i class="ph ph-microphone"></i></button>
+                }
                 <button type="button" class="btn btn-icon btn-secondary trash" aria-label="Видалити рецепт" @onclick="() => _confirmDelete = true"><i class="ph ph-trash"></i></button>
             </div>
         }
@@ -214,6 +219,11 @@
                      OnClose="() => _form = null" OnSaved="IngredientSavedAsync" OnDeleted="DeleteIngredientAsync" />
 }
 
+@if (_voice && _editor is not null)
+{
+    <VoiceSheet Line="line" OnApply="ApplyDraft" OnClose="() => _voice = false" />
+}
+
 @if (_confirmDelete && _editor is not null)
 {
     <ConfirmSheet Title="Видалити рецепт?" Message="@($"«{_editor.Draft.Name}» зникне зі списку.")"
@@ -238,6 +248,8 @@
     private bool _uploading;
     private bool _confirmDelete;
     private bool _deleted;
+    private bool _voice;
+    private bool _voiceAvailable;
     private Field _editing;
     private bool _focusPending;
     private ElementReference _focusTarget;
@@ -261,6 +273,7 @@
             _editor.Changed += () => InvokeAsync(StateHasChanged);
             if (IsNew) StartEdit(Field.Title);
         }
+        _voiceAvailable = await Drafts.IsAvailableAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -325,6 +338,25 @@
             await Task.Delay(180);
             _picker = null;
         }
+    }
+
+    private void OpenVoice()
+    {
+        _editing = Field.None;
+        _voice = true;
+    }
+
+    /// <summary>Merges a reviewed voice draft through the same selection rules as manual picks.</summary>
+    private void ApplyDraft(RecipeDraftDto draft)
+    {
+        if (_editor is null) return;
+        _voice = false;
+        var result = RecipeDraftApplier.Apply(_editor.Draft, draft, Catalog.Lookup);
+        _editor.Update(_ => result.Recipe);
+        foreach (var notice in result.Notices) Toasts.Show(notice, ToastKind.Info);
+        if (result.Unmatched.Count > 0)
+            Toasts.Show($"Немає в каталозі: {string.Join(", ", result.Unmatched)}", ToastKind.Info);
+        else Toasts.Show("Додано з голосу");
     }
 
     private async Task IngredientSavedAsync((IngredientDto Ingredient, bool Created) e)

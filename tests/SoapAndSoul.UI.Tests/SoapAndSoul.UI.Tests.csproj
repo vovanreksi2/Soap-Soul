@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SoapAndSoul.Api\SoapAndSoul.Api.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Same in-memory host and test data as the API tests. -->
+    <Compile Include="..\SoapAndSoul.Api.Tests\ApiFactory.cs" Link="Shared\ApiFactory.cs" />
+    <Compile Include="..\SoapAndSoul.Api.Tests\InMemoryDatabase.cs" Link="Shared\InMemoryDatabase.cs" />
+    <Compile Include="..\SoapAndSoul.Api.Tests\TestCatalog.cs" Link="Shared\TestCatalog.cs" />
+  </ItemGroup>
+</Project>
