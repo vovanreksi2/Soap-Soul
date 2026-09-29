@@ -66,6 +66,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   background: var(--color-neutral-900); }
 .thumb > .lighten { width: 100%; height: 100%; }
 .thumb .photo { width: 100%; height: 100%; background-size: cover; background-position: center; }
+button.thumb { border: 0; padding: 0; cursor: zoom-in; }
 
 .stepper { display: flex; align-items: center; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--color-neutral-700); }
 .stepper button { border: 0; background: none; color: var(--color-accent); cursor: pointer; display: grid; place-items: center; }
@@ -183,7 +184,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .item + .item { box-shadow: inset 0 1px 0 var(--color-neutral-800); }
 .item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0;
   cursor: pointer; text-align: left; }
-.item-main .thumb { width: 40px; height: 40px; border-radius: var(--radius-sm); font-size: 18px; }
+.item > .thumb { width: 40px; height: 40px; border-radius: var(--radius-sm); font-size: 18px; margin-right: 2px; }
 .item-main .text { flex: 1; min-width: 0; }
 .item-name { font-size: 14px; font-weight: 500; line-height: 1.25; }
 .item-caption { font-size: 11px; color: var(--color-neutral-500); display: flex; align-items: center; gap: 4px; }
@@ -245,6 +246,13 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .pick .name { font-size: 14px; font-weight: 500; line-height: 1.25; }
 .pick .price { font-size: 12px; color: var(--color-neutral-500); }
 .pick .edit { width: 36px; height: 44px; font-size: 16px; }
+.pick .stock { width: 32px; height: 44px; font-size: 18px; color: var(--color-neutral-700); }
+.pick .stock.on { color: var(--color-accent); }
+.pick-tabs { display: flex; flex: none; }
+.pick-tabs .seg-btn { flex: 1; min-height: 40px; }
+.pick-tabs .count { font-size: 11px; color: var(--color-neutral-500); }
+.pick-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 16px; text-align: center;
+  font-size: 14px; color: var(--color-neutral-400); }
 .check { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 14px;
   color: var(--color-bg); box-shadow: inset 0 0 0 1.5px var(--color-neutral-600); }
 .pick.on .check { background: var(--color-accent); box-shadow: none; }
@@ -294,6 +302,17 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 
 .confirm { padding: 14px 16px calc(16px + max(var(--safe-bottom), 18px)); gap: 12px; }
 .confirm p { margin: 0; font-size: 14px; color: var(--color-neutral-300); }
+
+/* ── Photo viewer ──────────────────────────────────────────────────── */
+.viewer { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: calc(56px + var(--safe-top)) 16px calc(24px + var(--safe-bottom));
+  background: color-mix(in srgb, var(--color-bg) 90%, transparent);
+  backdrop-filter: blur(6px); cursor: zoom-out; animation: toastIn .18s ease-out; outline: none; }
+.viewer img { max-width: 100%; max-height: 100%; min-height: 0; object-fit: contain; border-radius: var(--radius-md);
+  background-size: cover; background-position: center; box-shadow: var(--shadow-lg); }
+.viewer-caption { font-size: 14px; color: var(--color-neutral-200); text-align: center; }
+.viewer-close { position: absolute; top: calc(8px + var(--safe-top)); right: 8px; width: 44px; height: 44px; font-size: 22px;
+  color: var(--color-neutral-200); }
 
 /* ── Toasts ────────────────────────────────────────────────────────── */
 .toasts { position: absolute; top: calc(8px + var(--safe-top)); left: 12px; right: 12px; display: flex; flex-direction: column;

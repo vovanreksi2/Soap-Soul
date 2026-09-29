@@ -141,8 +141,8 @@
                         @foreach (var (ing, amount) in slot.Items)
                         {
                             <div class="item" @key="ing.Id">
+                                <Thumb Photo="@ing.PhotoUrl" Icon="@cat.Icon" OnZoom="() => _zoomed = ing" />
                                 <button type="button" class="item-main" @onclick="() => OpenPicker(cat)">
-                                    <Thumb Photo="@ing.PhotoUrl" Icon="@cat.Icon" />
                                     <div class="text">
                                         <div class="item-name">@ing.Name</div>
                                         <div class="item-caption">
@@ -209,7 +209,7 @@
     <PickerSheet Category="pickerCat"
                  Options="Catalog.Ingredients(line).Where(i => i.Category == pickerCat.Key).ToList()"
                  Selected="_editor.Draft.Items.Select(i => i.IngredientId).ToHashSet()"
-                 Toggle="ToggleAsync" Edit="ing => _form = (pickerCat, ing)" Add="() => _form = (pickerCat, null)"
+                 Toggle="ToggleAsync" ToggleStock="ToggleStockAsync" Edit="ing => _form = (pickerCat, ing)" Add="() => _form = (pickerCat, null)"
                  OnClose="() => _picker = null" />
 }
 
@@ -217,6 +217,11 @@
 {
     <IngredientSheet Line="line" Category="form.Category" Existing="form.Existing"
                      OnClose="() => _form = null" OnSaved="IngredientSavedAsync" OnDeleted="DeleteIngredientAsync" />
+}
+
+@if (_zoomed is { PhotoUrl: { } photo } zoomed)
+{
+    <PhotoViewer Photo="@photo" Caption="@zoomed.Name" OnClose="() => _zoomed = null" />
 }
 
 @if (_voice && _editor is not null)
@@ -255,6 +260,7 @@
     private ElementReference _focusTarget;
     private CategoryDefinition? _picker;
     private (CategoryDefinition Category, IngredientDto? Existing)? _form;
+    private IngredientDto? _zoomed;
     private DotNetObjectReference<RecipePage>? _selfRef;
     private IJSObjectReference? _hiddenHook;
 
@@ -337,6 +343,26 @@
         {
             await Task.Delay(180);
             _picker = null;
+        }
+    }
+
+    private async Task ToggleStockAsync(IngredientDto ingredient)
+    {
+        var result = await Catalog.SaveIngredientAsync(ingredient with { InStock = !ingredient.InStock });
+        switch (result)
+        {
+            case SaveResult<IngredientDto>.Conflict:
+                Toasts.Show("Інгредієнт змінили на іншому пристрої — спробуйте ще раз", ToastKind.Info);
+                break;
+            case SaveResult<IngredientDto>.Missing:
+                Toasts.Show("Інгредієнт уже видалено", ToastKind.Error);
+                break;
+            case SaveResult<IngredientDto>.Failed { Message: var message }:
+                Toasts.Show(message, ToastKind.Error);
+                break;
+            case SaveResult<IngredientDto>.Invalid:
+                Toasts.Show("Спершу виправте дані інгредієнта", ToastKind.Error);
+                break;
         }
     }
 

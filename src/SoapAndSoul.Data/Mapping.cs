@@ -7,7 +7,7 @@ public static class Mapping
 {
     public static IngredientDto ToDto(this Ingredient e) => new(
         e.Id, e.Line, e.Category, e.Name, e.Unit, e.TypicalAmount, e.PurchaseQuantity, e.PurchasePrice,
-        e.Capacity, e.UsesPerItem, e.PhotoUrl, e.Version);
+        e.Capacity, e.UsesPerItem, e.PhotoUrl, e.InStock, e.Version);
 
     public static void Apply(this Ingredient e, IngredientDto d)
     {
@@ -21,6 +21,7 @@ public static class Mapping
         e.Capacity = d.Capacity;
         e.UsesPerItem = d.UsesPerItem;
         e.PhotoUrl = d.PhotoUrl;
+        e.InStock = d.InStock;
     }
 
     public static RecipeDto ToDto(this Recipe e) => new(

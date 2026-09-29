@@ -1,0 +1,25 @@
+@* Full-screen photo over everything. The thumbnail shows while the large picture loads; a tap or Escape closes. *@
+<div class="viewer" role="dialog" aria-modal="true" aria-label="@Caption" tabindex="-1" @ref="_root"
+     @onclick="OnClose" @onkeydown="OnKey">
+    <button type="button" class="icon-btn viewer-close" aria-label="Закрити"><i class="ph ph-x"></i></button>
+    <img src="@PhotoUrls.Large(Photo)" alt="@Caption" style="background-image:url('@Photo')" />
+    <div class="viewer-caption">@Caption</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Photo { get; set; } = "";
+    [Parameter] public string? Caption { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ElementReference _root;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await _root.FocusAsync();
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await OnClose.InvokeAsync();
+    }
+}

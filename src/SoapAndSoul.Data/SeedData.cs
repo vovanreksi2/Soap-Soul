@@ -73,6 +73,10 @@ public static class SeedData
             return r;
         }
 
+        // The catalog entries the samples use are ones the user owns.
+        var used = ids.Values.ToList();
+        await db.Ingredients.Where(i => used.Contains(i.Id)).ForEachAsync(i => i.InStock = true, ct);
+
         db.Ingredients.AddRange(ingredients.Values);
         db.Recipes.AddRange(
             R(S, "Лавандове мило", "Ніжне біле мило з французькою лавандою та фіолетовими розводами.", 71, 40,

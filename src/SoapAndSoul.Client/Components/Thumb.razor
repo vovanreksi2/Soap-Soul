@@ -1,17 +1,24 @@
-@* Photo through Nocturne's .lighten blend, or the category icon when there is no photo. *@
-<div class="thumb @Class">
-    @if (string.IsNullOrEmpty(Photo))
-    {
-        <i class="ph @Icon"></i>
-    }
-    else
-    {
+@* Photo through Nocturne's .lighten blend, or the category icon when there is no photo. With OnZoom, a photo is a button. *@
+@if (string.IsNullOrEmpty(Photo))
+{
+    <div class="thumb @Class"><i class="ph @Icon"></i></div>
+}
+else if (OnZoom.HasDelegate)
+{
+    <button type="button" class="thumb zoom @Class" aria-label="Збільшити фото" @onclick="OnZoom" @onclick:stopPropagation="true">
         <div class="lighten"><div class="photo" style="background-image:url('@Photo')"></div></div>
-    }
-</div>
+    </button>
+}
+else
+{
+    <div class="thumb @Class">
+        <div class="lighten"><div class="photo" style="background-image:url('@Photo')"></div></div>
+    </div>
+}
 
 @code {
     [Parameter] public string? Photo { get; set; }
     [Parameter] public string Icon { get; set; } = "ph-image";
     [Parameter] public string? Class { get; set; }
+    [Parameter] public EventCallback OnZoom { get; set; }
 }

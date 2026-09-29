@@ -24,7 +24,8 @@ on a Kestrel port and drives Chromium via Playwright (`HEADED=1` to watch); it l
 
 Development seeds sample data into `src/SoapAndSoul.Api/App_Data/soapandsoul.db` (delete it to reset).
 All environments seed the supplier catalog (`Data/Catalog/CatalogSeed.cs` + embedded `aromasoap.json`, `Database:SeedCatalog`;
-ids derive from the product URL, so only never-seen entries are inserted). Rebuild the JSON with `python tools/aromasoap/scrape.py`.
+ids derive from the product URL, so only never-seen entries are inserted). Catalog entries are a reference
+(`InStock = false`); the picker shows "В наявності" and "Довідник" tabs, user-created ingredients start in stock. Rebuild the JSON with `python tools/aromasoap/scrape.py`.
 Migrations are applied at API startup.
 
 ## Architecture

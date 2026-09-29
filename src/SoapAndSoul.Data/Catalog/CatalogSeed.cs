@@ -12,6 +12,7 @@ namespace SoapAndSoul.Data.Catalog;
 /// Supplier catalog (<c>aromasoap.json</c>, built by <c>tools/aromasoap/scrape.py</c>) seeded as ingredients.
 /// Ids are derived from the product URL, so seeding is idempotent and never brings back
 /// an entry the user has edited, renamed or deleted; new catalog entries are added on the next start.
+/// Entries start out of stock: the catalog is a reference the user picks what they own from.
 /// </summary>
 public static class CatalogSeed
 {
@@ -41,7 +42,7 @@ public static class CatalogSeed
         {
             Id = e.Id, Line = e.Line, Category = e.Category, Name = e.Name, Unit = e.Unit, TypicalAmount = e.TypicalAmount,
             PurchaseQuantity = e.PurchaseQuantity, PurchasePrice = e.PurchasePrice, Capacity = e.Capacity,
-            UsesPerItem = e.UsesPerItem, PhotoUrl = e.PhotoUrl, CreatedAt = now, UpdatedAt = now, Version = Guid.NewGuid(),
+            UsesPerItem = e.UsesPerItem, PhotoUrl = e.PhotoUrl, InStock = false, CreatedAt = now, UpdatedAt = now, Version = Guid.NewGuid(),
         }));
         await db.SaveChangesAsync(ct);
         return missing.Count;

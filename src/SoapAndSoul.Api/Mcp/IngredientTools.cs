@@ -22,15 +22,18 @@ public sealed class IngredientTools(IngredientService ingredients)
 
     [McpServerTool(Name = "list_ingredients", ReadOnly = true, Idempotent = true)]
     [Description("Lists the ingredients of a product line with purchase data and unit price (UAH). " +
-                 "Optionally filtered by category and by a typo-tolerant name search.")]
+                 "The list includes the supplier catalog (reference entries with inStock false); " +
+                 "optionally filtered by stock, category and a typo-tolerant name search.")]
     public async Task<IReadOnlyList<IngredientView>> ListIngredients(
         [Description("Product line: Soap or Perfume.")] CosmeticLine line,
         [Description("Only this category.")] CategoryKey? category = null,
         [Description("Part of the name, in Ukrainian.")] string? search = null,
+        [Description("true: only what the user has in stock; false: only reference entries.")] bool? inStock = null,
         CancellationToken ct = default)
     {
         var all = await ingredients.ListAsync(line, ct);
         return all
+            .Where(i => inStock is null || i.InStock == inStock)
             .Where(i => category is null || i.Category == category)
             .Where(i => FuzzyMatcher.Matches(search, i.Name))
             .Select(i => i.ToView())
@@ -50,6 +53,7 @@ public sealed class IngredientTools(IngredientService ingredients)
         [Description("Default amount added to a recipe, in unit. Required except for molds and bottles.")] decimal? typicalAmount = null,
         [Description("Mold weight (g) or bottle volume (ml). Required for categories with capacity.")] decimal? capacity = null,
         [Description("How many recipes one purchased item serves (molds are reused; default 100 for molds, 1 otherwise).")] int? usesPerItem = null,
+        [Description("Whether the user has it in stock (default true).")] bool inStock = true,
         CancellationToken ct = default)
     {
         var cat = Categories.Find(line, category)
@@ -59,7 +63,8 @@ public sealed class IngredientTools(IngredientService ingredients)
             typicalAmount ?? (cat.HasCapacity ? 1 : 0), purchaseQuantity, purchasePrice,
             cat.HasCapacity ? capacity : null,
             usesPerItem ?? (cat.Amortized ? Categories.DefaultMoldUses : 1),
-            PhotoUrl: null);
+            PhotoUrl: null,
+            InStock: inStock);
         return (await ingredients.SaveAsync(dto, ct)).Unwrap("ingredient").ToView();
     }
 
@@ -74,6 +79,7 @@ public sealed class IngredientTools(IngredientService ingredients)
         [Description("Default amount added to a recipe.")] decimal? typicalAmount = null,
         [Description("Mold weight (g) or bottle volume (ml).")] decimal? capacity = null,
         [Description("How many recipes one purchased item serves.")] int? usesPerItem = null,
+        [Description("Whether the user has it in stock.")] bool? inStock = null,
         CancellationToken ct = default)
     {
         var current = await ingredients.GetAsync(id, ct) ?? throw new McpException($"Ingredient {id} not found.");
@@ -86,6 +92,7 @@ public sealed class IngredientTools(IngredientService ingredients)
             TypicalAmount = typicalAmount ?? current.TypicalAmount,
             Capacity = capacity ?? current.Capacity,
             UsesPerItem = usesPerItem ?? current.UsesPerItem,
+            InStock = inStock ?? current.InStock,
         };
         return (await ingredients.SaveAsync(dto, ct)).Unwrap("ingredient").ToView();
     }

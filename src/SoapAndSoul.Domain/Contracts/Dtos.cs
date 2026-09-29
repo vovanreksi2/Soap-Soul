@@ -6,6 +6,7 @@ namespace SoapAndSoul.Domain.Contracts;
 /// <param name="TypicalAmount">Default amount added to a recipe; 1 for mold/bottle.</param>
 /// <param name="Capacity">Mold weight (г) or bottle volume (мл); only for categories with capacity.</param>
 /// <param name="UsesPerItem">How many recipes one purchased item serves (molds are reused); 1 otherwise.</param>
+/// <param name="InStock">Whether the user has it; supplier-catalog entries start as reference only.</param>
 /// <param name="Version">Optimistic-concurrency token; null when the ingredient is new.</param>
 public sealed record IngredientDto(
     Guid Id,
@@ -19,6 +20,7 @@ public sealed record IngredientDto(
     decimal? Capacity,
     int UsesPerItem,
     string? PhotoUrl,
+    bool InStock = true,
     Guid? Version = null);
 
 public sealed record RecipeItemDto(Guid IngredientId, decimal Amount);

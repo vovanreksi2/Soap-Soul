@@ -33,6 +33,7 @@ public sealed class RecipeDraftBuilder(ILlmClient llm, IngredientService ingredi
         Ingredients:
         - Match every ingredient the user mentions to the catalog in the request, by meaning. Allow for
           misrecognized words, Ukrainian inflection and informal names ("лаванда" for "Ефірна олія лаванди").
+          When several entries fit, prefer one the user has in stock.
         - Put the catalog id in ingredientId only when the match is clear; otherwise use null and give your
           best guess of the category. Never make up an id.
         - spokenName is the ingredient as the user said it, in the nominative case.
@@ -56,10 +57,10 @@ public sealed class RecipeDraftBuilder(ILlmClient llm, IngredientService ingredi
         foreach (var c in Categories.For(line))
             sb.AppendLine($"- {c.Key}: {c.Label} — {c.Hint}");
         sb.AppendLine();
-        sb.AppendLine("Catalog (id | category | name | unit):");
+        sb.AppendLine("Catalog (id | category | name | unit | in stock):");
         if (catalog.Count == 0) sb.AppendLine("(empty)");
         foreach (var i in catalog)
-            sb.AppendLine($"- {i.Id} | {i.Category} | {i.Name} | {i.Unit}");
+            sb.AppendLine($"- {i.Id} | {i.Category} | {i.Name} | {i.Unit} | {(i.InStock ? "yes" : "no")}");
         sb.AppendLine();
         sb.AppendLine("<transcript>");
         sb.AppendLine(request.Transcript.Trim());

@@ -35,12 +35,13 @@ public class CatalogSeedTests
     }
 
     [Fact]
-    public async Task Seeding_adds_the_catalog_once_and_keeps_user_deletions()
+    public async Task Seeding_adds_the_catalog_once_out_of_stock_and_keeps_user_deletions()
     {
         await using var factory = new ApiFactory { SeedCatalog = true };
         var http = factory.CreateClient();
         var soap = await http.GetFromJsonAsync<List<IngredientDto>>("/api/ingredients?line=Soap");
         Assert.Equal(CatalogSeed.Entries.Count, soap!.Count);
+        Assert.All(soap, i => Assert.False(i.InStock, i.Name));
 
         var deleted = soap[0];
         (await http.DeleteAsync($"/api/ingredients/{deleted.Id}")).EnsureSuccessStatusCode();

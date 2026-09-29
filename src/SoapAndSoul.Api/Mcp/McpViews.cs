@@ -16,7 +16,7 @@ public sealed record CategoryView(
 /// <param name="UnitPrice">Price of one <see cref="Unit"/> in a recipe, UAH (molds already amortized).</param>
 public sealed record IngredientView(
     Guid Id, CosmeticLine Line, CategoryKey Category, string Name, MeasureUnit Unit, decimal TypicalAmount,
-    decimal PurchaseQuantity, decimal PurchasePrice, decimal? Capacity, int UsesPerItem, decimal UnitPrice);
+    decimal PurchaseQuantity, decimal PurchasePrice, decimal? Capacity, int UsesPerItem, decimal UnitPrice, bool InStock);
 
 public sealed record RecipeSummary(
     Guid Id, string Name, decimal Weight, int TimeMinutes, int BatchSize, int ItemCount, decimal CostPerPiece, DateTimeOffset? UpdatedAt);
@@ -38,7 +38,7 @@ internal static class McpViews
 
     public static IngredientView ToView(this IngredientDto i) =>
         new(i.Id, i.Line, i.Category, i.Name, i.Unit, i.TypicalAmount, i.PurchaseQuantity, i.PurchasePrice,
-            i.Capacity, i.UsesPerItem, Money(CostCalculator.UnitPrice(i)));
+            i.Capacity, i.UsesPerItem, Money(CostCalculator.UnitPrice(i)), i.InStock);
 
     public static RecipeSummary ToSummary(this RecipeDto r, Func<Guid, IngredientDto?> lookup) =>
         new(r.Id, r.Name, r.Weight, r.TimeMinutes, r.BatchSize, r.Items.Count, Money(CostCalculator.RecipeCost(r, lookup)), r.UpdatedAt);
