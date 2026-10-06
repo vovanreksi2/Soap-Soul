@@ -17,6 +17,11 @@ public class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Seed the supplier catalog at startup.</summary>
     public bool SeedCatalog { get; init; }
 
+    /// <summary>Connection string of a database to copy into this one at startup (<c>Database:ImportFrom</c>).</summary>
+    public string? ImportFrom { get; init; }
+
+    public string ConnectionString => _database.ConnectionString;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -26,6 +31,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", _database.ConnectionString);
         builder.UseSetting("Database:SeedCatalog", SeedCatalog ? "true" : "false");
         builder.UseSetting("Database:SeedSampleData", SeedSampleData ? "true" : "false");
+        builder.UseSetting("Database:ImportFrom", ImportFrom ?? "");
         builder.UseSetting("Images:Provider", "Local");
         builder.UseSetting("Images:Path", _images);
         builder.UseSetting("Llm:Provider", "None");
