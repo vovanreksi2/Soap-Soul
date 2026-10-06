@@ -93,7 +93,7 @@ Anthropic's recommended fallback model instead of failing.
 
 ## Deployment
 
-Production runs on Azure App Service with Azure SQL and Blob Storage, reached through a managed identity.
+Production runs on Azure App Service with Azure SQL (the free offer) and Blob Storage, reached through a managed identity.
 On every push to `main`, GitHub Actions (`.github/workflows/deploy.yml`) builds and tests the app, deploys the
 infrastructure from `infra/main.bicep`, then deploys the app onto it.
 The Anthropic and MCP keys live in Key Vault and are set with `infra/set-secrets.sh`.

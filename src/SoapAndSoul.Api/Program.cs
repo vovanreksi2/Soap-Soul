@@ -27,6 +27,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SoapAndSoulDbContext>();
     await db.Database.MigrateAsync();
+    await app.ImportIfConfiguredAsync(db);
     if (app.Configuration.GetValue<bool>("Database:SeedCatalog"))
         await CatalogSeed.SeedAsync(db);
     if (app.Configuration.GetValue<bool>("Database:SeedSampleData"))

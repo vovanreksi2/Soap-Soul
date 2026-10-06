@@ -1,6 +1,6 @@
 # Deploying to Azure
 
-Production runs on Azure App Service with Azure SQL and Blob Storage. Everything is described in
+Production runs on Azure App Service with Azure SQL (free offer) and Blob Storage. Everything is described in
 [`infra/main.bicep`](../../infra/main.bicep) and deployed by
 [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml):
 
@@ -19,10 +19,11 @@ identity. No passwords, connection secrets or storage keys exist anywhere. The o
 | Resource | Name | Notes |
 |---|---|---|
 | User-assigned managed identity | `id-soapandsoul` | The app's identity for SQL and Blob Storage |
-| Azure SQL server + database | `sql-soapandsoul-<hash>` / `soapandsoul` | Entra-only auth, Basic tier (5 DTU, 2 GB) |
+| Azure SQL server + database | `sql-soapandsoul-<hash>` / `soapandsoul-db` | Entra-only auth, free offer (serverless General Purpose, auto-pause) |
+| Previous database | `soapandsoul` on the same server | Basic tier; kept only until the move to the free database is confirmed, see [Moving to the free database](#moving-to-the-free-database) |
 | Storage account + `images` container | `stsoapandsoul<hash>` | No public access, shared keys disabled, 7-day soft delete |
-| App Service plan | `asp-soapandsoul` | Linux B1; skipped when an existing plan is reused |
-| Web App | `app-soapandsoul-<hash>` | .NET 10, HTTPS only, Always On, health check `/healthz` |
+| App Service plan | `asp-soapandsoul` | Linux F1 (free); skipped when an existing plan is reused |
+| Web App | `app-soapandsoul-<hash>` | .NET 10, HTTPS only; Always On and health check `/healthz` only on B1 and higher |
 | Key Vault | `kvsoapandsoul<hash>` | RBAC only; the app identity has *Key Vault Secrets User* |
 
 `<hash>` is derived from the resource group id, so names are stable across deployments. The names and SKUs
@@ -36,6 +37,7 @@ The template writes these app settings; nothing is configured by hand:
 |---|---|
 | `Database__Provider` | `SqlServer` |
 | `ConnectionStrings__Default` | `Server=tcp:<server>.database.windows.net;…;Authentication=Active Directory Managed Identity;User Id=<identity client id>` |
+| `Database__ImportFrom` | the same for the previous database (temporary, see below) |
 | `Images__Provider` | `AzureBlob` |
 | `Images__BlobServiceUri` / `Images__Container` | the storage account's blob endpoint / `images` |
 | `Images__ManagedIdentityClientId` | the identity's client id |
@@ -43,7 +45,15 @@ The template writes these app settings; nothing is configured by hand:
 | `Llm__Provider` | `Anthropic` |
 
 - **SQL**: the app applies the SQL Server migrations (`src/SoapAndSoul.Data.SqlServer/Migrations`) at startup.
-  Connections retry on transient Azure SQL errors.
+  Connections retry on transient Azure SQL errors, which also covers the database resuming from auto-pause.
+- **Free limits**: the database uses the [Azure SQL free offer](https://learn.microsoft.com/azure/azure-sql/database/free-offer):
+  100,000 vCore seconds, 32 GB of data and 32 GB of backups per month, at no cost. It pauses after
+  `sqlAutoPauseDelay` minutes without connections (15 by default) and resumes on the next request, which then takes
+  up to about a minute. At the 0.5-vCore minimum the allowance is about 55 hours online a month; `/healthz` and
+  Always On do not touch the database, but every app start wakes it to apply migrations. When the allowance is used
+  up, the database stays paused until the 1st of the next month and the app cannot load or save data; nothing is
+  billed. Watch the *Free amount remaining* metric on the database, or add an alert on it below 10,000 seconds.
+  The subscription must allow the offer (not *Azure for Students Starter*) and has at most 10 free databases.
 - **Photos**: uploaded to the private `images` container. The app streams them to the browser at
   `/images/{name}`, so photo URLs stay the same as in development and the storage account stays private.
   The identity has *Storage Blob Data Contributor* on the `images` container only.
@@ -67,6 +77,22 @@ The template writes these app settings; nothing is configured by hand:
 - **SQL firewall allows Azure services** (`0.0.0.0` rule), because App Service outbound IPs are only known after
   deployment. Every connection still needs an Entra token for the admin identity. Private endpoints would
   close this completely but need a VNet and a higher App Service tier.
+
+### Free App Service plan (F1)
+
+The plan defaults to F1 (`appServicePlanSku`), which costs nothing but:
+
+- **Cold starts**: without Always On the app is unloaded after about 20 idle minutes. The next visit starts it again
+  (a few seconds), and its migrations then wake the database (up to a minute more if it was paused).
+- **60 CPU minutes a day**: when they are used up the app is stopped until the quota resets. A single user stays well
+  below it; voice drafts and photo uploads cost the most.
+- **No custom domains**: the app is only reachable at `<name>.azurewebsites.net`.
+- **One free Linux plan per subscription**: deployment fails with *Exceeded the limit of 1 free tier linux server
+  farm* if another one exists.
+
+Set `appServicePlanSku` to `B1` in `infra/main.bicepparam` to get Always On, the health check and custom domains back.
+Moving an existing B1 plan to F1 can fail while the site still has Always On; turn it off first and re-run the workflow:
+`az webapp config set -g $RG -n <app> --always-on false`.
 
 ## One-time setup
 
@@ -169,7 +195,7 @@ claude mcp add --transport http soap-and-soul https://<app>.azurewebsites.net/mc
   region. A Windows plan cannot host this template's Linux app; leave the parameter empty to get a new plan.
 - **Web App name**: set `webAppName` if you want a specific `<name>.azurewebsites.net`. To reuse the old Web App
   itself, it must be a Linux app; its settings are replaced by the template's.
-- **Custom domain**: point a `CNAME` at the new Web App (plus the `asuid` TXT record App Service asks for), then:
+- **Custom domain** (needs B1 or higher): point a `CNAME` at the new Web App (plus the `asuid` TXT record App Service asks for), then:
 
   ```bash
   APP=$(az webapp list -g $RG --query "[?starts_with(name, 'app-soapandsoul')].name | [0]" -o tsv)
@@ -184,7 +210,7 @@ claude mcp add --transport http soap-and-soul https://<app>.azurewebsites.net/mc
 ## Operations
 
 - **Logs**: `az webapp log tail -g $RG -n $APP` (enable with `az webapp log config -g $RG -n $APP --docker-container-logging filesystem`).
-- **Backups**: Azure SQL keeps point-in-time restore for 7 days (Basic tier); deleted blobs are kept for 7 days.
+- **Backups**: Azure SQL keeps point-in-time restore for 7 days (the free offer's limit); deleted blobs are kept for 7 days.
 - **Rollback**: re-run the deploy job of an earlier successful workflow run. Migrations are not rolled back.
 - **Querying the database yourself**: only the app identity is admin. Temporarily make yourself admin and allow
   your IP; the next deployment restores the app identity:
@@ -197,6 +223,25 @@ claude mcp add --transport http soap-and-soul https://<app>.azurewebsites.net/mc
   ```
 
   Remove the `me` firewall rule when you are done.
+
+## Moving to the free database
+
+An existing database cannot be converted to the free offer, restored into it or copied with `database copy`, so the
+template creates a new `soapandsoul-db` next to the old `soapandsoul`. The first start of the app on the new database
+copies every row from the old one (`Database__ImportFrom`), keeping ids, versions, timestamps and deleted records:
+after migrations, before the catalog is seeded, and only while the new database has no ingredients and no recipes.
+The log shows `Database import: copied N ingredients and M recipes.`, later starts log that the import was skipped.
+Avoid editing recipes while that deployment runs. The old database is not changed, so rolling back means pointing
+`ConnectionStrings__Default` at it again.
+
+Once the data is confirmed, remove `sqlLegacyDatabase` and `Database__ImportFrom` from `infra/main.bicep`, delete
+`DatabaseImport` and its startup call and tests, and delete the old database by hand, since deployments are
+incremental and never delete resources:
+
+```bash
+SQL=$(az sql server list -g $RG --query "[0].name" -o tsv)
+az sql db delete -g $RG -s $SQL -n soapandsoul --yes
+```
 
 ## Changing the data model
 

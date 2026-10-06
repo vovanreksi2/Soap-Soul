@@ -26,7 +26,9 @@ Development seeds sample data into `src/SoapAndSoul.Api/App_Data/soapandsoul.db`
 All environments seed the supplier catalog (`Data/Catalog/CatalogSeed.cs` + embedded `aromasoap.json`, `Database:SeedCatalog`;
 ids derive from the product URL, so only never-seen entries are inserted). Catalog entries are a reference
 (`InStock = false`); the picker shows "В наявності" and "Довідник" tabs, user-created ingredients start in stock. Rebuild the JSON with `python tools/aromasoap/scrape.py`.
-Migrations are applied at API startup.
+Migrations are applied at API startup. Temporary: `Database:ImportFrom` (production) copies the old Basic-tier
+Azure SQL database into the new free-offer one when it is empty (`Data/DatabaseImport.cs`); remove it with
+`sqlLegacyDatabase` in `infra/main.bicep` once the move is confirmed (`docs/deploy/azure.md`).
 
 ## Architecture
 

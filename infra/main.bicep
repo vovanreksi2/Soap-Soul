@@ -1,4 +1,4 @@
-// Production infrastructure: App Service (Linux, .NET 10) + Azure SQL + Blob Storage + Key Vault.
+// Production infrastructure: App Service (Linux, .NET 10) + Azure SQL (free offer) + Blob Storage + Key Vault.
 // The app reaches all of them with one user-assigned managed identity. The only secrets (third-party API keys)
 // live in Key Vault; they are set by hand (infra/set-secrets.sh), never by the template or the pipeline.
 // Deployed by .github/workflows/deploy.yml before every app deployment (idempotent). See docs/deploy/azure.md.
@@ -16,16 +16,16 @@ param webAppName string = 'app-${name}-${uniqueString(resourceGroup().id)}'
 @description('Resource id of an existing Linux App Service plan to reuse. Empty creates a new plan.')
 param appServicePlanId string = ''
 
-@description('SKU of the new App Service plan (ignored when reusing one). B1 or higher supports Always On.')
-param appServicePlanSku string = 'B1'
+@description('SKU of the App Service plan: F1 (free) or B1 and higher. When appServicePlanId is set, set this to that plan SKU.')
+param appServicePlanSku string = 'F1'
 
-@description('Azure SQL database SKU. Basic (5 DTU, 2 GB) is enough for a single user.')
-param sqlDatabaseSku object = {
-  name: 'Basic'
-  tier: 'Basic'
-}
+@description('Auto-pause delay of the free serverless database in minutes (15 or more). Every minute online counts against the free monthly vCore seconds.')
+@minValue(15)
+param sqlAutoPauseDelay int = 15
 
 var suffix = uniqueString(resourceGroup().id)
+// The free plan has no Always On, unloads the app after 20 idle minutes and allows 60 CPU minutes a day.
+var freePlan = toUpper(appServicePlanSku) == 'F1'
 var storageBlobDataContributor = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 var keyVaultSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
 
@@ -65,15 +65,45 @@ resource sqlAllowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01' = {
   }
 }
 
+// Azure SQL free offer: serverless General Purpose with 100,000 vCore seconds and 32 GB free per month. When the
+// allowance runs out the database pauses until the next month instead of billing. An existing database cannot be
+// converted to the free offer, so this is a new database; the app copies the old one into it on first start.
 resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
+  parent: sqlServer
+  name: '${name}-db'
+  location: location
+  sku: {
+    name: 'GP_S_Gen5'
+    tier: 'GeneralPurpose'
+    family: 'Gen5'
+    capacity: 2
+  }
+  properties: {
+    useFreeLimit: true
+    freeLimitExhaustionBehavior: 'AutoPause'
+    autoPauseDelay: sqlAutoPauseDelay
+    minCapacity: any(json('0.5'))
+    requestedBackupStorageRedundancy: 'Local'
+  }
+}
+
+// The previous Basic-tier database, kept unchanged until the move to the free one is confirmed: it is the import
+// source (Database__ImportFrom) and the rollback. Remove it, the setting and DatabaseImport together.
+resource sqlLegacyDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
   parent: sqlServer
   name: name
   location: location
-  sku: sqlDatabaseSku
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
   properties: {
     requestedBackupStorageRedundancy: 'Local'
   }
 }
+
+func sqlConnectionString(server string, database string, identityClientId string) string =>
+  'Server=tcp:${server},1433;Database=${database};Authentication=Active Directory Managed Identity;User Id=${identityClientId};Encrypt=True;Connect Timeout=60'
 
 // --- Blob Storage ------------------------------------------------------------------------------------
 
@@ -189,16 +219,22 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
       // The package also holds SoapAndSoul.Client.runtimeconfig.json; without an explicit command the platform
       // cannot tell which assembly to start and serves its default page instead.
       appCommandLine: 'dotnet SoapAndSoul.Api.dll'
-      alwaysOn: true
+      alwaysOn: !freePlan
       http20Enabled: true
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
-      healthCheckPath: '/healthz'
+      // With one instance the health check cannot fail over anything; on the free plan it would also keep the app
+      // loaded and spend its CPU quota. The deployment smoke test calls /healthz either way.
+      healthCheckPath: freePlan ? null : '/healthz'
       appSettings: [
         { name: 'Database__Provider', value: 'SqlServer' }
         {
           name: 'ConnectionStrings__Default'
-          value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Database=${sqlDatabase.name};Authentication=Active Directory Managed Identity;User Id=${identity.properties.clientId};Encrypt=True;Connect Timeout=60'
+          value: sqlConnectionString(sqlServer.properties.fullyQualifiedDomainName, sqlDatabase.name, identity.properties.clientId)
+        }
+        {
+          name: 'Database__ImportFrom'
+          value: sqlConnectionString(sqlServer.properties.fullyQualifiedDomainName, sqlLegacyDatabase.name, identity.properties.clientId)
         }
         { name: 'Images__Provider', value: 'AzureBlob' }
         { name: 'Images__BlobServiceUri', value: storage.properties.primaryEndpoints.blob }
