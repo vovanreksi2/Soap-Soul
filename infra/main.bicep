@@ -19,10 +19,6 @@ param appServicePlanId string = ''
 @description('SKU of the App Service plan: F1 (free) or B1 and higher. When appServicePlanId is set, set this to that plan SKU.')
 param appServicePlanSku string = 'F1'
 
-@description('Auto-pause delay of the free serverless database in minutes (15 or more). Every minute online counts against the free monthly vCore seconds.')
-@minValue(15)
-param sqlAutoPauseDelay int = 15
-
 var suffix = uniqueString(resourceGroup().id)
 // The free plan has no Always On, unloads the app after 20 idle minutes and allows 60 CPU minutes a day.
 var freePlan = toUpper(appServicePlanSku) == 'F1'
@@ -68,6 +64,7 @@ resource sqlAllowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01' = {
 // Azure SQL free offer: serverless General Purpose with 100,000 vCore seconds and 32 GB free per month. When the
 // allowance runs out the database pauses until the next month instead of billing. An existing database cannot be
 // converted to the free offer, so this is a new database; the app copies the old one into it on first start.
+// With AutoPause, Azure only accepts the default auto-pause delay (60 minutes) and minimum capacity (0.5 vCores).
 resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
   parent: sqlServer
   name: '${name}-db'
@@ -81,8 +78,6 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = {
   properties: {
     useFreeLimit: true
     freeLimitExhaustionBehavior: 'AutoPause'
-    autoPauseDelay: sqlAutoPauseDelay
-    minCapacity: any(json('0.5'))
     requestedBackupStorageRedundancy: 'Local'
   }
 }
