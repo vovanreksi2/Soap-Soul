@@ -47,10 +47,11 @@ The template writes these app settings; nothing is configured by hand:
 - **SQL**: the app applies the SQL Server migrations (`src/SoapAndSoul.Data.SqlServer/Migrations`) at startup.
   Connections retry on transient Azure SQL errors, which also covers the database resuming from auto-pause.
 - **Free limits**: the database uses the [Azure SQL free offer](https://learn.microsoft.com/azure/azure-sql/database/free-offer):
-  100,000 vCore seconds, 32 GB of data and 32 GB of backups per month, at no cost. It pauses after
-  `sqlAutoPauseDelay` minutes without connections (15 by default) and resumes on the next request, which then takes
-  up to about a minute. At the 0.5-vCore minimum the allowance is about 55 hours online a month; `/healthz` and
-  Always On do not touch the database, but every app start wakes it to apply migrations. When the allowance is used
+  100,000 vCore seconds, 32 GB of data and 32 GB of backups per month, at no cost. It pauses after 60 minutes
+  without connections (the only delay the offer allows with auto-pause) and resumes on the next request, which then
+  takes up to about a minute. At the 0.5-vCore minimum the allowance is about 55 hours online a month, so roughly 50
+  separate sessions, since each one keeps the database online for an hour after it ends. `/healthz` does not touch
+  the database, but every app start wakes it to apply migrations. When the allowance is used
   up, the database stays paused until the 1st of the next month and the app cannot load or save data; nothing is
   billed. Watch the *Free amount remaining* metric on the database, or add an alert on it below 10,000 seconds.
   The subscription must allow the offer (not *Azure for Students Starter*) and has at most 10 free databases.
